@@ -30,34 +30,33 @@ function formatAlgorithmName(algo) {
   return names[algo] || algo;
 }
 
-function renderHistoryDropdown(board) {
-  var dropdown = document.getElementById("historyDropdown");
-  if (!dropdown) {
-    console.warn("[History UI] Dropdown element not found");
+function renderHistoryList(board) {
+  var container = document.getElementById("historyList");
+  if (!container) {
+    console.warn("[History UI] historyList element not found");
     return;
   }
 
   var runs = historyStorage.loadRuns();
-  dropdown.innerHTML = "";
+  container.innerHTML = "";
 
   if (runs.length === 0) {
-    var emptyLi = document.createElement("li");
-    emptyLi.className = "history-empty";
-    emptyLi.textContent = "No saved runs yet. Click 'Visualize!' to create one.";
-    dropdown.appendChild(emptyLi);
+    var emptyState = document.createElement("div");
+    emptyState.className = "history-empty";
+    emptyState.textContent = "No saved runs yet. Click 'Visualize!' to create one.";
+    container.appendChild(emptyState);
     return;
   }
 
   for (var i = 0; i < runs.length; i++) {
     var run = runs[i];
-    var item = createHistoryItem(run, board);
-    dropdown.appendChild(item);
+    container.appendChild(createHistoryItem(run, board));
   }
 
-  var clearAllLi = document.createElement("li");
-  clearAllLi.className = "history-clear-all";
-  clearAllLi.innerHTML = '<button id="clearAllHistoryBtn">Clear All History</button>';
-  dropdown.appendChild(clearAllLi);
+  var clearAll = document.createElement("div");
+  clearAll.className = "history-clear-all";
+  clearAll.innerHTML = '<button id="clearAllHistoryBtn" type="button">Clear All History</button>';
+  container.appendChild(clearAll);
 
   var clearBtn = document.getElementById("clearAllHistoryBtn");
   if (clearBtn) {
@@ -66,15 +65,15 @@ function renderHistoryDropdown(board) {
       e.stopPropagation();
       if (confirm("Delete all run history? This cannot be undone.")) {
         historyStorage.clearHistory();
-        renderHistoryDropdown(board);
+        renderHistoryList(board);
       }
     };
   }
 }
 
 function createHistoryItem(run, board) {
-  var li = document.createElement("li");
-  li.className = "history-item";
+  var item = document.createElement("div");
+  item.className = "history-item";
 
   var algoName = formatAlgorithmName(run.settings ? run.settings.algorithm : "unknown");
   var result = run.result || {};
@@ -88,51 +87,42 @@ function createHistoryItem(run, board) {
     summary = "No path found";
   }
 
-  li.innerHTML =
+  item.innerHTML =
     '<div class="history-item-header">' +
     '<span class="history-item-name">' + algoName + '</span>' +
     '<span class="history-item-time">' + formatTimestamp(run.timestamp) + '</span>' +
     '</div>' +
     '<div class="history-item-summary">' + summary + '</div>' +
     '<div class="history-item-actions">' +
-    '<button class="load-btn" data-run-id="' + run.id + '">Load</button>' +
-    '<button class="replay-btn" data-run-id="' + run.id + '">Replay</button>' +
-    '<button class="delete-btn" data-run-id="' + run.id + '">Delete</button>' +
+    '<button class="load-btn" data-run-id="' + run.id + '" type="button">Load</button>' +
+    '<button class="replay-btn" data-run-id="' + run.id + '" type="button">Replay</button>' +
+    '<button class="delete-btn" data-run-id="' + run.id + '" type="button">Delete</button>' +
     '</div>';
 
-  var loadBtn = li.querySelector(".load-btn");
-  var replayBtn = li.querySelector(".replay-btn");
-  var deleteBtn = li.querySelector(".delete-btn");
+  var loadBtn = item.querySelector(".load-btn");
+  var replayBtn = item.querySelector(".replay-btn");
+  var deleteBtn = item.querySelector(".delete-btn");
 
   loadBtn.onclick = function (e) {
     e.preventDefault();
     e.stopPropagation();
     loadRun(run, board, false);
-    closeDropdown();
   };
 
   replayBtn.onclick = function (e) {
     e.preventDefault();
     e.stopPropagation();
     loadRun(run, board, true);
-    closeDropdown();
   };
 
   deleteBtn.onclick = function (e) {
     e.preventDefault();
     e.stopPropagation();
     historyStorage.deleteRun(run.id);
-    renderHistoryDropdown(board);
+    renderHistoryList(board);
   };
 
-  return li;
-}
-
-function closeDropdown() {
-  var historyButton = document.getElementById("historyButton");
-  if (historyButton && historyButton.parentElement) {
-    historyButton.parentElement.classList.remove("open");
-  }
+  return item;
 }
 
 function loadRun(run, board, autoReplay) {
@@ -191,7 +181,7 @@ function loadRun(run, board, autoReplay) {
     var speedText = board.speed.charAt(0).toUpperCase() + board.speed.slice(1);
     var speedElement = document.getElementById("adjustSpeed");
     if (speedElement) {
-      speedElement.textContent = "Speed: " + speedText;
+      speedElement.innerHTML = "Speed: " + speedText + '<span class="caret"></span>';
     }
 
     var slider = document.getElementById("weightSlider");
@@ -201,6 +191,8 @@ function loadRun(run, board, autoReplay) {
 
     board.changeStartNodeImages();
   }
+
+  renderHistoryList(board);
 
   console.log("[History] Run loaded successfully");
 
@@ -215,28 +207,13 @@ function loadRun(run, board, autoReplay) {
 }
 
 function initHistoryUI(board) {
-  var historyButton = document.getElementById("historyButton");
-
-  if (historyButton) {
-    historyButton.addEventListener("click", function () {
-      renderHistoryDropdown(board);
-    });
-
-    var parent = historyButton.parentElement;
-    if (parent) {
-      parent.addEventListener("show.bs.dropdown", function () {
-        renderHistoryDropdown(board);
-      });
-    }
-  }
-
-  renderHistoryDropdown(board);
-
+  renderHistoryList(board);
   console.log("[History UI] Initialized");
 }
 
 module.exports = {
   initHistoryUI: initHistoryUI,
-  renderHistoryDropdown: renderHistoryDropdown,
+  renderHistoryList: renderHistoryList,
+  renderHistoryDropdown: renderHistoryList,
   loadRun: loadRun
 };
