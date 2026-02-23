@@ -8472,3 +8472,163 @@ body.panel-open {
     min-width: 64px;
   }
 }
+
+/* ============================================
+   MAZE ONBOARDING MODAL
+   ============================================ */
+.maze-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 16px;
+}
+
+.maze-modal-overlay.hidden {
+  display: none;
+}
+
+.maze-modal-container {
+  width: min(960px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  padding: 26px;
+}
+
+.maze-modal-header {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.maze-modal-title {
+  margin: 0 0 8px 0;
+  color: #1a1a2e;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.maze-modal-subtitle {
+  margin: 0;
+  color: #6b7c8d;
+  font-size: 14px;
+}
+
+.maze-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.maze-card {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 2px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 18px 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.maze-card:hover,
+.maze-card:focus {
+  border-color: #3498db;
+  background: #f0f8ff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(52, 152, 219, 0.15);
+  outline: none;
+}
+
+.maze-card:active {
+  transform: translateY(0);
+}
+
+.maze-card-icon {
+  font-size: 30px;
+  line-height: 1;
+  margin-bottom: 10px;
+  opacity: 0.82;
+}
+
+.maze-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 6px;
+}
+
+.maze-card-desc {
+  font-size: 12px;
+  line-height: 1.42;
+  color: #708090;
+}
+
+.maze-card-free {
+  grid-column: span 2;
+  border-color: #2ecc71;
+  background: #f0fdf4;
+}
+
+.maze-card-free:hover,
+.maze-card-free:focus {
+  border-color: #27ae60;
+  background: #e8f9ef;
+  box-shadow: 0 8px 20px rgba(46, 204, 113, 0.15);
+}
+
+/* ============================================
+   SIDEBAR MAZE DROPDOWN
+   ============================================ */
+.sidebar-maze-dropup > .btn {
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  padding: 6px 12px;
+  background: #f8f9fa;
+  border-color: #dfe6e9;
+  color: #2c3e50;
+}
+
+.sidebar-maze-dropup > .btn .caret {
+  float: right;
+  margin-top: 7px;
+}
+
+.sidebar-maze-dropup > .dropdown-menu {
+  top: 100%;
+  bottom: auto;
+  left: 0;
+  width: 100%;
+  margin-bottom: 4px;
+  margin-top: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+#sidebarMazeBtn[disabled] {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .maze-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .maze-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .maze-card-free {
+    grid-column: auto;
+  }
+}
