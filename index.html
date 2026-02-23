@@ -35,19 +35,6 @@
             </li>
 
             <li class="dropdown">
-              <a class="dropdown-toggle" data-toggle="dropdown" href="#">Mazes
-                <span class="caret"></span></a>
-              <ul class="dropdown-menu">
-                <li id='startButtonCreateMazeTwo'><a href="#">Recursive Division</a></li>
-                <li id='startButtonCreateMazeThree'><a href="#">Recursive Division (vertical skew)</a></li>
-                <li id='startButtonCreateMazeFour'><a href="#">Recursive Division (horizontal skew)</a></li>
-                <li id='startButtonCreateMazeOne'><a href="#">Basic Random Maze</a></li>
-                <li id='startButtonCreateMazeWeights'><a href="#">Basic Weight Maze</a></li>
-                <li id='startStairDemonstration'><a href="#">Simple Stair Pattern</a></li>
-              </ul>
-            </li>
-
-            <li class="dropdown">
               <a class="dropdown-toggle" data-toggle="dropdown" href="#">Settings
                 <span class="caret"></span></a>
               <ul class="dropdown-menu">
@@ -87,6 +74,16 @@
     <button id="skipButton" class="btn btn-default navbar-btn" type="button">Skip Tutorial</button>
   </div>
 
+  <div id="mazeOnboardingOverlay" class="maze-modal-overlay hidden">
+    <div class="maze-modal-container">
+      <header class="maze-modal-header">
+        <h3 class="maze-modal-title">🧩 Choose Your Starting Maze</h3>
+        <p class="maze-modal-subtitle">Select a maze pattern to begin exploring, or start with a blank grid.</p>
+      </header>
+      <div class="maze-card-grid"></div>
+    </div>
+  </div>
+
   <div id="appLayout">
     <aside id="sidebar" class="sidebar-open">
       <div class="sidebar-tabs">
@@ -99,6 +96,17 @@
           <h5 class="sidebar-section-title">Algorithm</h5>
           <div id="algorithmDescriptor">Pick an algorithm and visualize it!</div>
           <button id="algoInfoBtn" class="btn btn-xs btn-link" type="button">More Info</button>
+        </div>
+
+        <div class="sidebar-section sidebar-maze-section">
+          <h5 class="sidebar-section-title">Maze</h5>
+          <div class="dropdown sidebar-maze-dropup">
+            <button id="sidebarMazeBtn" class="btn btn-sm btn-default dropdown-toggle" type="button"
+              data-toggle="dropdown">
+              <span id="currentMazeLabel">None</span> <span class="caret"></span>
+            </button>
+            <ul id="mazeDropupMenu" class="dropdown-menu"></ul>
+          </div>
         </div>
 
         <div class="sidebar-section">
