@@ -1,27 +1,18 @@
 const Node = require("./node");
 const launchAnimations = require("./animations/launchAnimations");
 const launchInstantAnimations = require("./animations/launchInstantAnimations");
-const mazeGenerationAnimations = require("./animations/mazeGenerationAnimations");
 const weightedSearchAlgorithm = require("./pathfindingAlgorithms/weightedSearchAlgorithm");
 const unweightedSearchAlgorithm = require("./pathfindingAlgorithms/unweightedSearchAlgorithm");
-const recursiveDivisionMaze = require("./mazeAlgorithms/recursiveDivisionMaze");
-const otherMaze = require("./mazeAlgorithms/otherMaze");
-const otherOtherMaze = require("./mazeAlgorithms/otherOtherMaze");
-const astar = require("./pathfindingAlgorithms/astar");
-const stairDemonstration = require("./mazeAlgorithms/stairDemonstration");
-const weightsDemonstration = require("./mazeAlgorithms/weightsDemonstration");
-const simpleDemonstration = require("./mazeAlgorithms/simpleDemonstration");
 const explanationTemplates = require("./utils/explanationTemplates");
 const bidirectional = require("./pathfindingAlgorithms/bidirectional");
 const getDistance = require("./getDistance");
-const serializeRun = require("./utils/runSerializer");
-const historyStorage = require("./utils/historyStorage");
 const aiExplain = require("./utils/aiExplain");
 const historyUI = require("./utils/historyUI");
 const weightImpactAnalyzer = require("./utils/weightImpactAnalyzer");
 const algorithmDescriptions = require("./utils/algorithmDescriptions");
 const algorithmModal = require("./utils/algorithmModal");
 const AnimationController = require("./animations/animationController");
+const mazeSelector = require("./utils/mazeSelector");
 
 function Board(height, width) {
   this.height = height;
@@ -45,7 +36,8 @@ function Board(height, width) {
   this.buttonsOn = false;
   this.speed = "fast";
   this.currentWeightValue = 15;
-  this.explanationPanelVisible = localStorage.getItem("explanationPanelVisible") === "true";
+  this.sidebarOpen = localStorage.getItem("sidebarOpen");
+  this.sidebarOpen = this.sidebarOpen === null ? true : this.sidebarOpen === "true";
   this.currentTrace = [];
   this.traceCursor = 0;
   this.lastVisitedCount = 0;
@@ -58,66 +50,178 @@ function Board(height, width) {
     currentNode: null
   };
   this.animationController = new AnimationController();
-
-  var panel = document.getElementById("explanationPanel");
-  if (panel && !this.explanationPanelVisible) {
-    panel.classList.add("hidden");
-  }
 }
 
 Board.prototype.initialise = function () {
   this.createGrid();
   this.addEventListeners();
-  this.initExplanationPanel();
+  this.initSidebar();
+  mazeSelector.initSidebarMazeDropup(this);
   historyUI.initHistoryUI(this);
   this.toggleTutorialButtons();
 };
 
-Board.prototype.initExplanationPanel = function () {
+Board.prototype.initSidebar = function () {
   var currentObject = this;
-  var panel = document.getElementById("explanationPanel");
-  if (!panel) return;
+  var sidebar = document.getElementById("sidebar");
+  if (!sidebar) return;
 
-  if (!this.explanationPanelVisible) {
-    panel.classList.add("hidden");
-    document.body.classList.remove("panel-open");
-  } else {
-    panel.classList.remove("hidden");
-    document.body.classList.add("panel-open");
+  if (window.innerWidth < 1200 && localStorage.getItem("sidebarOpen") === null) {
+    this.sidebarOpen = false;
   }
 
-  var toggleButton = document.getElementById("toggleExplanationBtn");
-  var closeButton = document.getElementById("closeExplanationBtn");
+  this.applySidebarState();
+  this.setSidebarTab("controls");
+
+  var toggleButton = document.getElementById("toggleSidebarBtn");
+  var tabControls = document.getElementById("tabControls");
+  var tabInsight = document.getElementById("tabInsight");
+  var sidebarClearPath = document.getElementById("sidebarClearPath");
+  var sidebarClearWalls = document.getElementById("sidebarClearWalls");
+  var sidebarClearBoard = document.getElementById("sidebarClearBoard");
+  var algoInfoBtn = document.getElementById("algoInfoBtn");
+
   if (toggleButton) {
     toggleButton.addEventListener("click", function () {
-      currentObject.toggleExplanationPanel();
+      currentObject.toggleSidebar();
     });
   }
-  if (closeButton) {
-    closeButton.addEventListener("click", function () {
-      currentObject.toggleExplanationPanel();
+
+  if (tabControls) {
+    tabControls.addEventListener("click", function () {
+      currentObject.setSidebarTab("controls");
     });
   }
+
+  if (tabInsight) {
+    tabInsight.addEventListener("click", function () {
+      currentObject.setSidebarTab("insight");
+    });
+  }
+
+  if (sidebarClearPath) {
+    sidebarClearPath.addEventListener("click", function () {
+      var clearPathButton = document.getElementById("startButtonClearPath");
+      if (clearPathButton && typeof clearPathButton.onclick === "function") {
+        clearPathButton.onclick();
+      }
+    });
+  }
+
+  if (sidebarClearWalls) {
+    sidebarClearWalls.addEventListener("click", function () {
+      var clearWallsButton = document.getElementById("startButtonClearWalls");
+      if (clearWallsButton && typeof clearWallsButton.onclick === "function") {
+        clearWallsButton.onclick();
+      }
+    });
+  }
+
+  if (sidebarClearBoard) {
+    sidebarClearBoard.addEventListener("click", function () {
+      var clearBoardButton = document.getElementById("startButtonClearBoard");
+      if (clearBoardButton && typeof clearBoardButton.onclick === "function") {
+        clearBoardButton.onclick();
+      }
+    });
+  }
+
+  if (algoInfoBtn) {
+    algoInfoBtn.addEventListener("click", function () {
+      if (!currentObject.currentAlgorithm) return;
+      var key = algorithmDescriptions.getAlgorithmKey(currentObject.currentAlgorithm, currentObject.currentHeuristic);
+      algorithmModal.showAlgorithmInfo(key);
+    });
+  }
+
+  window.addEventListener("resize", function () {
+    currentObject.applySidebarState();
+  });
 
   this.updateExplanationPanel(null);
 };
 
-Board.prototype.toggleExplanationPanel = function () {
-  this.explanationPanelVisible = !this.explanationPanelVisible;
-  var panel = document.getElementById("explanationPanel");
-  if (panel) {
-    panel.classList.toggle("hidden");
+Board.prototype.applySidebarState = function () {
+  var sidebar = document.getElementById("sidebar");
+  if (!sidebar) return;
+
+  if (window.innerWidth <= 1199) {
+    sidebar.classList.remove("sidebar-collapsed");
+    if (this.sidebarOpen) {
+      sidebar.classList.add("sidebar-open");
+    } else {
+      sidebar.classList.remove("sidebar-open");
+    }
+    return;
   }
-  if (this.explanationPanelVisible) {
-    document.body.classList.add("panel-open");
+
+  sidebar.classList.remove("sidebar-open");
+  if (this.sidebarOpen) {
+    sidebar.classList.remove("sidebar-collapsed");
   } else {
-    document.body.classList.remove("panel-open");
+    sidebar.classList.add("sidebar-collapsed");
   }
-  localStorage.setItem("explanationPanelVisible", this.explanationPanelVisible);
+};
+
+Board.prototype.toggleSidebar = function (forceOpen) {
+  if (typeof forceOpen === "boolean") {
+    this.sidebarOpen = forceOpen;
+  } else {
+    this.sidebarOpen = !this.sidebarOpen;
+  }
+  this.applySidebarState();
+  localStorage.setItem("sidebarOpen", this.sidebarOpen);
+};
+
+Board.prototype.setSidebarTab = function (tab) {
+  var controlsTab = document.getElementById("tabControls");
+  var insightTab = document.getElementById("tabInsight");
+  var controlsPanel = document.getElementById("panelControls");
+  var insightPanel = document.getElementById("panelInsight");
+  if (!controlsTab || !insightTab || !controlsPanel || !insightPanel) return;
+
+  var showInsight = tab === "insight";
+  controlsTab.classList.toggle("active", !showInsight);
+  insightTab.classList.toggle("active", showInsight);
+  controlsPanel.classList.toggle("active", !showInsight);
+  insightPanel.classList.toggle("active", showInsight);
+};
+
+Board.prototype.activateControlsTab = function () {
+  this.setSidebarTab("controls");
+};
+
+Board.prototype.activateInsightTab = function () {
+  this.setSidebarTab("insight");
+};
+
+Board.prototype.updateRunningStateUI = function (isRunning) {
+  var startButton = document.getElementById("startButtonStart");
+  if (startButton) {
+    startButton.classList.toggle("hidden", isRunning);
+  }
+
+  if (!isRunning) {
+    var controls = document.getElementById("animationControls");
+    var progress = document.getElementById("animationProgress");
+    if (controls) controls.classList.add("hidden");
+    if (progress) progress.textContent = "";
+  }
+};
+
+Board.prototype.initExplanationPanel = function () {
+  this.initSidebar();
+};
+
+Board.prototype.toggleExplanationPanel = function () {
+  this.toggleSidebar();
 };
 
 Board.prototype.updateExplanationPanel = function (event) {
+  var insightPlaceholder = document.getElementById("insightPlaceholder");
+
   if (!event) {
+    if (insightPlaceholder) insightPlaceholder.classList.remove("hidden");
     document.getElementById("stepNumber").textContent = "—";
     document.getElementById("currentNodeInfo").querySelector(".node-coords").textContent = "—";
     document.getElementById("gCost").textContent = "—";
@@ -128,6 +232,8 @@ Board.prototype.updateExplanationPanel = function (event) {
     document.getElementById("visitedCountLive").textContent = "—";
     return;
   }
+
+  if (insightPlaceholder) insightPlaceholder.classList.add("hidden");
 
   var cached = this.lastKnownPanelValues;
   var computedCost = null;
@@ -582,10 +688,12 @@ Board.prototype.drawShortestPathTimeout = function (targetNodeId, startNodeId, t
 
     var impactDisplay = document.getElementById("weightImpactDisplay");
     var impactText = document.getElementById("weightImpactText");
-    if (impactDisplay && impactText) {
+    if (impactText) {
       var impact = weightImpactAnalyzer.analyzeWeightImpact(board);
       impactText.textContent = impact.explanation;
-      impactDisplay.classList.remove("hidden");
+      if (impactDisplay) {
+        impactDisplay.classList.remove("hidden");
+      }
     }
   }
 
@@ -700,14 +808,30 @@ Board.prototype.computePathCost = function () {
 
 Board.prototype.displayPathCost = function (visitedCount) {
   let metrics = this.computePathCost();
-  document.getElementById("pathCost").textContent = metrics.cost;
-  document.getElementById("pathLength").textContent = metrics.pathLength;
-  document.getElementById("visitedCount").textContent = visitedCount;
-  document.getElementById("pathCostDisplay").classList.remove("hidden");
+  let costEl = document.getElementById("pathCost");
+  let lengthEl = document.getElementById("pathLength");
+  let visitedEl = document.getElementById("visitedCount");
+  if (costEl) costEl.textContent = metrics.cost;
+  if (lengthEl) lengthEl.textContent = metrics.pathLength;
+  if (visitedEl) visitedEl.textContent = visitedCount;
+
+  let resultsEl = document.getElementById("resultsBar");
+  let legacyEl = document.getElementById("pathCostDisplay");
+  if (resultsEl) {
+    resultsEl.classList.remove("hidden");
+  } else if (legacyEl) {
+    legacyEl.classList.remove("hidden");
+  }
 };
 
 Board.prototype.hidePathCost = function () {
-  document.getElementById("pathCostDisplay").classList.add("hidden");
+  let resultsEl = document.getElementById("resultsBar");
+  let legacyEl = document.getElementById("pathCostDisplay");
+  if (resultsEl) {
+    resultsEl.classList.add("hidden");
+  } else if (legacyEl) {
+    legacyEl.classList.add("hidden");
+  }
 };
 
 Board.prototype.clearPath = function (clickedButton) {
@@ -732,6 +856,10 @@ Board.prototype.clearPath = function (clickedButton) {
   var impactDisplay = document.getElementById("weightImpactDisplay");
   if (impactDisplay) {
     impactDisplay.classList.add("hidden");
+  }
+  var impactText = document.getElementById("weightImpactText");
+  if (impactText) {
+    impactText.textContent = "";
   }
   if (clickedButton) {
     this.hidePathCost();
@@ -908,7 +1036,8 @@ Board.prototype.changeStartNodeImages = function () {
     } else {
       document.getElementById("algorithmDescriptor").innerHTML = `${name} is <i><b>unweighted</b></i> and <i><b>guarantees</b></i> the shortest path!`;
     }
-    document.getElementById("weightLegend").className = "strikethrough";
+    let weightLegend = document.getElementById("weightLegend");
+    if (weightLegend) weightLegend.className = "strikethrough";
     for (let i = 0; i < 14; i++) {
       let j = i.toString();
       let backgroundImage = document.styleSheets["1"].rules[j].style.backgroundImage;
@@ -918,7 +1047,8 @@ Board.prototype.changeStartNodeImages = function () {
     if (this.currentAlgorithm === "greedy" || this.currentAlgorithm === "CLA") {
       document.getElementById("algorithmDescriptor").innerHTML = `${name} is <i><b>weighted</b></i> and <i><b>does not guarantee</b></i> the shortest path!`;
     }
-    document.getElementById("weightLegend").className = "";
+    let weightLegend = document.getElementById("weightLegend");
+    if (weightLegend) weightLegend.className = "";
     for (let i = 0; i < 14; i++) {
       let j = i.toString();
       let backgroundImage = document.styleSheets["1"].rules[j].style.backgroundImage;
@@ -948,7 +1078,7 @@ Board.prototype.toggleTutorialButtons = function () {
 
   document.getElementById("skipButton").onclick = () => {
     document.getElementById("tutorial").style.display = "none";
-    this.toggleButtons();
+    mazeSelector.showOnboardingModal(this);
   }
 
   if (document.getElementById("nextButton")) {
@@ -977,7 +1107,7 @@ Board.prototype.toggleTutorialButtons = function () {
     } else if (counter === 4) {
       document.getElementById("tutorial").innerHTML = `<h3>Meet the algorithms</h3><h6>Not all algorithms are created equal.</h6><ul><li><b>Dijkstra's Algorithm</b> (weighted): the father of pathfinding algorithms; guarantees the shortest path</li><li><b>A* Search</b> (weighted): arguably the best pathfinding algorithm; uses heuristics to guarantee the shortest path much faster than Dijkstra's Algorithm</li><li><b>Greedy Best-first Search</b> (weighted): a faster, more heuristic-heavy version of A*; does not guarantee the shortest path</li><li><b>Swarm Algorithm</b> (weighted): a mixture of Dijkstra's Algorithm and A*; does not guarantee the shortest-path</li><li><b>Convergent Swarm Algorithm</b> (weighted): the faster, more heuristic-heavy version of Swarm; does not guarantee the shortest path</li><li><b>Bidirectional Swarm Algorithm</b> (weighted): Swarm from both sides; does not guarantee the shortest path</li><li><b>Breath-first Search</b> (unweighted): a great algorithm; guarantees the shortest path</li><li><b>Depth-first Search</b> (unweighted): a very bad algorithm for pathfinding; does not guarantee the shortest path</li></ul><div id="tutorialCounter">${counter}/8</div><button id="nextButton" class="btn btn-default navbar-btn" type="button">Next</button><button id="previousButton" class="btn btn-default navbar-btn" type="button">Previous</button><button id="skipButton" class="btn btn-default navbar-btn" type="button">Skip Tutorial</button>`
     } else if (counter === 5) {
-      document.getElementById("tutorial").innerHTML = `<h3>Adding walls and weights</h3><h6>Click on the grid to add a wall. Click on the grid while pressing W to add a weight. Generate mazes and patterns from the "Mazes & Patterns" drop-down menu.</h6><p>Walls are impenetrable, meaning that a path cannot cross through them. Weights are not impassable, they just cost more. Each step has a base cost of 1. Turning adds extra cost (90-degree turn +1, 180-degree turn +2). Weights add the slider value (0-50). Set weight to 0 to make a normal node.</p><img id="secondTutorialImage" src="public/styling/walls.gif"><div id="tutorialCounter">${counter}/8</div><button id="nextButton" class="btn btn-default navbar-btn" type="button">Next</button><button id="previousButton" class="btn btn-default navbar-btn" type="button">Previous</button><button id="skipButton" class="btn btn-default navbar-btn" type="button">Skip Tutorial</button>`
+      document.getElementById("tutorial").innerHTML = `<h3>Adding walls and weights</h3><h6>Click on the grid to add a wall. Click on the grid while pressing W to add a weight. Generate mazes and patterns from the Maze section in the left sidebar.</h6><p>Walls are impenetrable, meaning that a path cannot cross through them. Weights are not impassable, they just cost more. Each step has a base cost of 1. Turning adds extra cost (90-degree turn +1, 180-degree turn +2). Weights add the slider value (0-50). Set weight to 0 to make a normal node.</p><img id="secondTutorialImage" src="public/styling/walls.gif"><div id="tutorialCounter">${counter}/8</div><button id="nextButton" class="btn btn-default navbar-btn" type="button">Next</button><button id="previousButton" class="btn btn-default navbar-btn" type="button">Previous</button><button id="skipButton" class="btn btn-default navbar-btn" type="button">Skip Tutorial</button>`
     } else if (counter === 6) {
       document.getElementById("tutorial").innerHTML = `<h3>Dragging nodes</h3><h6>Click and drag the start and target nodes to move them.</h6><p>Note that you can drag nodes even after an algorithm has finished running. This will allow you to instantly see different paths.</p><img src="public/styling/dragging.gif"><div id="tutorialCounter">${counter}/8</div><button id="nextButton" class="btn btn-default navbar-btn" type="button">Next</button><button id="previousButton" class="btn btn-default navbar-btn" type="button">Previous</button><button id="skipButton" class="btn btn-default navbar-btn" type="button">Skip Tutorial</button>`
     } else if (counter === 7) {
@@ -986,7 +1116,7 @@ Board.prototype.toggleTutorialButtons = function () {
       document.getElementById("tutorial").innerHTML = `<h3>Enjoy!</h3><h6>I hope you have just as much fun playing around with this visualization tool as I had building it!</h6><p>If you want to see the source code for this application, check out my <a href="https://github.com/clementmihailescu/Pathfinding-Visualizer">github</a>.</p><div id="tutorialCounter">${counter}/8</div><button id="finishButton" class="btn btn-default navbar-btn" type="button">Finish</button><button id="previousButton" class="btn btn-default navbar-btn" type="button">Previous</button><button id="skipButton" class="btn btn-default navbar-btn" type="button">Skip Tutorial</button>`
       document.getElementById("finishButton").onclick = () => {
         document.getElementById("tutorial").style.display = "none";
-        board.toggleButtons();
+        mazeSelector.showOnboardingModal(board);
       }
     }
   }
@@ -1099,15 +1229,6 @@ Board.prototype.toggleButtons = function () {
       };
     }
 
-    document.getElementById("startStairDemonstration").onclick = () => {
-      this.clearWalls();
-      this.clearPath("clickedButton");
-      this.toggleButtons();
-      stairDemonstration(this);
-      mazeGenerationAnimations(this);
-    }
-
-
     document.getElementById("startButtonBidirectional").onclick = () => {
       document.getElementById("startButtonStart").innerHTML = '<button id="actualStartButton" class="btn btn-default navbar-btn" type="button">Visualize Bidirectional Swarm!</button>'
       this.currentAlgorithm = "bidirectional";
@@ -1171,26 +1292,6 @@ Board.prototype.toggleButtons = function () {
       this.changeStartNodeImages();
     }
 
-    document.getElementById("startButtonCreateMazeOne").onclick = () => {
-      this.clearWalls();
-      this.clearPath("clickedButton");
-      this.createMazeOne("wall");
-    }
-
-    document.getElementById("startButtonCreateMazeTwo").onclick = () => {
-      this.clearWalls();
-      this.clearPath("clickedButton");
-      this.toggleButtons();
-      recursiveDivisionMaze(this, 2, this.height - 3, 2, this.width - 3, "horizontal", false, "wall");
-      mazeGenerationAnimations(this);
-    }
-
-    document.getElementById("startButtonCreateMazeWeights").onclick = () => {
-      this.clearWalls();
-      this.clearPath("clickedButton");
-      this.createMazeOne("weight");
-    }
-
     document.getElementById("startButtonClearBoard").onclick = () => {
       if (this.animationController) this.animationController.stop();
       var controls = document.getElementById("animationControls");
@@ -1202,6 +1303,10 @@ Board.prototype.toggleButtons = function () {
       var impactDisplay = document.getElementById("weightImpactDisplay");
       if (impactDisplay) {
         impactDisplay.classList.add("hidden");
+      }
+      var impactText = document.getElementById("weightImpactText");
+      if (impactText) {
+        impactText.textContent = "";
       }
       let height = this.height;
       let width = this.width;
@@ -1253,32 +1358,9 @@ Board.prototype.toggleButtons = function () {
       this.clearPath("clickedButton");
     }
 
-    document.getElementById("startButtonCreateMazeThree").onclick = () => {
-      this.clearWalls();
-      this.clearPath("clickedButton");
-      this.toggleButtons();
-      otherMaze(this, 2, this.height - 3, 2, this.width - 3, "vertical", false);
-      mazeGenerationAnimations(this);
-    }
-
-    document.getElementById("startButtonCreateMazeFour").onclick = () => {
-      this.clearWalls();
-      this.clearPath("clickedButton");
-      this.toggleButtons();
-      otherOtherMaze(this, 2, this.height - 3, 2, this.width - 3, "horizontal", false);
-      mazeGenerationAnimations(this);
-    }
-
-
     document.getElementById("startButtonClearPath").className = "navbar-inverse navbar-nav";
     document.getElementById("startButtonClearWalls").className = "navbar-inverse navbar-nav";
     document.getElementById("startButtonClearBoard").className = "navbar-inverse navbar-nav";
-    document.getElementById("startButtonCreateMazeOne").className = "navbar-inverse navbar-nav";
-    document.getElementById("startButtonCreateMazeTwo").className = "navbar-inverse navbar-nav";
-    document.getElementById("startButtonCreateMazeThree").className = "navbar-inverse navbar-nav";
-    document.getElementById("startButtonCreateMazeFour").className = "navbar-inverse navbar-nav";
-    document.getElementById("startButtonCreateMazeWeights").className = "navbar-inverse navbar-nav";
-    document.getElementById("startStairDemonstration").className = "navbar-inverse navbar-nav";
     document.getElementById("startButtonDFS").className = "navbar-inverse navbar-nav";
     document.getElementById("startButtonBFS").className = "navbar-inverse navbar-nav";
     document.getElementById("startButtonDijkstra").className = "navbar-inverse navbar-nav";
@@ -1290,6 +1372,8 @@ Board.prototype.toggleButtons = function () {
     document.getElementById("adjustSlow").className = "navbar-inverse navbar-nav";
     document.getElementById("startButtonBidirectional").className = "navbar-inverse navbar-nav";
     document.getElementById("startButtonGreedy").className = "navbar-inverse navbar-nav";
+    let sidebarMazeBtn = document.getElementById("sidebarMazeBtn");
+    if (sidebarMazeBtn) sidebarMazeBtn.disabled = false;
     document.getElementById("actualStartButton").style.backgroundColor = "";
 
   } else {
@@ -1302,12 +1386,6 @@ Board.prototype.toggleButtons = function () {
     document.getElementById("startButtonAStar2").onclick = null;
     document.getElementById("startButtonAStar3").onclick = null;
     document.getElementById("startButtonBidirectional").onclick = null;
-    document.getElementById("startButtonCreateMazeOne").onclick = null;
-    document.getElementById("startButtonCreateMazeTwo").onclick = null;
-    document.getElementById("startButtonCreateMazeThree").onclick = null;
-    document.getElementById("startButtonCreateMazeFour").onclick = null;
-    document.getElementById("startButtonCreateMazeWeights").onclick = null;
-    document.getElementById("startStairDemonstration").onclick = null;
     document.getElementById("startButtonClearPath").onclick = null;
     document.getElementById("startButtonClearWalls").onclick = null;
     document.getElementById("startButtonClearBoard").onclick = null;
@@ -1322,12 +1400,6 @@ Board.prototype.toggleButtons = function () {
     document.getElementById("startButtonClearPath").className = "navbar-inverse navbar-nav disabledA";
     document.getElementById("startButtonClearWalls").className = "navbar-inverse navbar-nav disabledA";
     document.getElementById("startButtonClearBoard").className = "navbar-inverse navbar-nav disabledA";
-    document.getElementById("startButtonCreateMazeOne").className = "navbar-inverse navbar-nav disabledA";
-    document.getElementById("startButtonCreateMazeTwo").className = "navbar-inverse navbar-nav disabledA";
-    document.getElementById("startButtonCreateMazeThree").className = "navbar-inverse navbar-nav disabledA";
-    document.getElementById("startButtonCreateMazeFour").className = "navbar-inverse navbar-nav disabledA";
-    document.getElementById("startButtonCreateMazeWeights").className = "navbar-inverse navbar-nav disabledA";
-    document.getElementById("startStairDemonstration").className = "navbar-inverse navbar-nav disabledA";
     document.getElementById("startButtonDFS").className = "navbar-inverse navbar-nav disabledA";
     document.getElementById("startButtonBFS").className = "navbar-inverse navbar-nav disabledA";
     document.getElementById("startButtonDijkstra").className = "navbar-inverse navbar-nav disabledA";
@@ -1336,6 +1408,8 @@ Board.prototype.toggleButtons = function () {
     document.getElementById("startButtonAStar2").className = "navbar-inverse navbar-nav disabledA";
     document.getElementById("startButtonAStar3").className = "navbar-inverse navbar-nav disabledA";
     document.getElementById("startButtonBidirectional").className = "navbar-inverse navbar-nav disabledA";
+    let sidebarMazeBtn = document.getElementById("sidebarMazeBtn");
+    if (sidebarMazeBtn) sidebarMazeBtn.disabled = true;
 
     document.getElementById("actualStartButton").style.backgroundColor = "rgb(185, 15, 15)";
   }
