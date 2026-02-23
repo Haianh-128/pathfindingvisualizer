@@ -1,4 +1,4 @@
-function mazeGenerationAnimations(board) {
+function mazeGenerationAnimations(board, onComplete) {
   let nodes = board.wallsToAnimate.slice(0);
   let speed = board.speed === "fast" ?
     5 : board.speed === "average" ?
@@ -7,7 +7,11 @@ function mazeGenerationAnimations(board) {
     setTimeout(function () {
       if (index === nodes.length) {
         board.wallsToAnimate = [];
-        board.toggleButtons();
+        if (typeof onComplete === "function") {
+          onComplete();
+        } else {
+          board.toggleButtons();
+        }
         return;
       }
       nodes[index].className = board.nodes[nodes[index].id].weight > 0 ? "unvisited weight" : "wall";
