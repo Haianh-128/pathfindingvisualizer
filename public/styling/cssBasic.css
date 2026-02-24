@@ -4966,6 +4966,12 @@ fieldset[disabled] .input-group-btn .btn-default.active {
   background-color: #34495e;
   border-radius: 6px;
 }
+
+.tooltip.insight-tooltip .tooltip-inner {
+  max-width: 280px;
+  line-height: 1.45;
+  text-align: left;
+}
 .tooltip.top .tooltip-arrow {
   margin-left: -9px;
   border-width: 9px 9px 0;
@@ -8895,6 +8901,17 @@ body.panel-open {
   color: #74b0ce;
 }
 
+#sidebar.dark-stage .insight-tooltip-icon {
+  color: #83afc8;
+}
+
+#sidebar.dark-stage .insight-tooltip-icon:hover,
+#sidebar.dark-stage .insight-tooltip-icon:focus {
+  color: #00e5a0;
+  background: rgba(0, 229, 160, 0.12);
+  box-shadow: 0 0 0 2px rgba(0, 229, 160, 0.26);
+}
+
 #sidebar.dark-stage #algorithmDescriptor,
 #sidebar.dark-stage .metric-label,
 #sidebar.dark-stage .sidebar-legend-item,
@@ -9039,6 +9056,39 @@ body.panel-open {
   color: #95a5a6;
   text-transform: uppercase;
   letter-spacing: 0.8px;
+}
+
+.insight-tooltip-icon {
+  width: 16px;
+  height: 16px;
+  margin-left: 5px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #7f8c8d;
+  opacity: 0.65;
+  cursor: help;
+  font-size: 12px;
+  line-height: 1;
+  vertical-align: middle;
+  transition: opacity 0.2s ease, color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.insight-tooltip-icon:hover,
+.insight-tooltip-icon:focus {
+  opacity: 1;
+  color: #3498db;
+  background: rgba(52, 152, 219, 0.12);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+  outline: none;
+}
+
+.insight-tooltip-icon .glyphicon {
+  top: 0;
 }
 
 #algorithmDescriptor {
@@ -9542,8 +9592,15 @@ body.panel-open {
 
 .node-costs {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   font-size: 13px;
+}
+
+.cost-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .cost-label {
@@ -9569,12 +9626,19 @@ body.panel-open {
 .metric-item {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 13px;
 }
 
 .metric-label {
   color: #7f8c8d;
   font-weight: 500;
+}
+
+.metric-label-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 #historyList {
