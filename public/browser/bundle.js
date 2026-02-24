@@ -90,6 +90,7 @@ const weightedSearchAlgorithm = require("../pathfindingAlgorithms/weightedSearch
 const unweightedSearchAlgorithm = require("../pathfindingAlgorithms/unweightedSearchAlgorithm");
 const historyStorage = require("../utils/historyStorage");
 const serializeRun = require("../utils/runSerializer");
+const historyUI = require("../utils/historyUI");
 
 function launchAnimations(board, success, type) {
   var nodes = board.nodesToAnimate.slice(0);
@@ -111,10 +112,39 @@ function launchAnimations(board, success, type) {
     pauseBtn.innerHTML = '<span class="glyphicon glyphicon-pause"></span> Pause';
   }
 
+  var runContext = historyUI && typeof historyUI.getRunContext === "function"
+    ? historyUI.getRunContext(board)
+    : { mode: "visualize", sourceRunId: null };
+
+  if (historyUI && typeof historyUI.setPendingRun === "function") {
+    board.currentRunToken = historyUI.setPendingRun(board, {
+      mode: runContext.mode || "visualize",
+      sourceRunId: runContext.sourceRunId || null,
+      algorithm: board.currentAlgorithm,
+      heuristic: board.currentHeuristic,
+      speed: board.speed,
+      phase: "exploring",
+      current: 0,
+      total: nodes.length,
+      statusText: nodes.length > 0 ? "Exploring 0/" + nodes.length : "Exploring..."
+    });
+  } else {
+    board.currentRunToken = null;
+  }
+
   function onExploreFrame(index) {
+    var progressIndex = nodes.length ? Math.min(index + 1, nodes.length) : 0;
     if (progressEl) {
-      var progressIndex = nodes.length ? Math.min(index + 1, nodes.length) : 0;
       progressEl.textContent = "Exploring " + progressIndex + "/" + nodes.length;
+    }
+
+    if (historyUI && typeof historyUI.updatePendingRun === "function") {
+      historyUI.updatePendingRun(board, board.currentRunToken, {
+        phase: "exploring",
+        current: progressIndex,
+        total: nodes.length,
+        statusText: "Exploring " + progressIndex + "/" + nodes.length
+      });
     }
 
     if (index >= nodes.length) return;
@@ -161,6 +191,13 @@ function launchAnimations(board, success, type) {
       board.displayPathCost(visitedCount);
       var runSummary = serializeRun(board, success, visitedCount);
       historyStorage.saveRun(runSummary);
+      if (historyUI && typeof historyUI.updatePendingRun === "function") {
+        historyUI.updatePendingRun(board, board.currentRunToken, {
+          phase: "finalizing",
+          statusText: "Finalizing run...",
+          persistedRunId: runSummary.id
+        });
+      }
       console.log("[Run Complete]", runSummary);
       return;
     }
@@ -169,6 +206,14 @@ function launchAnimations(board, success, type) {
     board.reset();
     if (controls) controls.classList.add("hidden");
     if (progressEl) progressEl.textContent = "";
+    if (historyUI && typeof historyUI.resolvePendingRun === "function") {
+      historyUI.resolvePendingRun(board, board.currentRunToken, {
+        status: "failed",
+        statusText: "Failed",
+        clearDelayMs: 1200
+      });
+    }
+    board.currentRunToken = null;
     board.toggleButtons();
   }
 
@@ -194,7 +239,7 @@ function launchAnimations(board, success, type) {
 
 module.exports = launchAnimations;
 
-},{"../pathfindingAlgorithms/unweightedSearchAlgorithm":14,"../pathfindingAlgorithms/weightedSearchAlgorithm":15,"../utils/historyStorage":21,"../utils/runSerializer":24}],3:[function(require,module,exports){
+},{"../pathfindingAlgorithms/unweightedSearchAlgorithm":14,"../pathfindingAlgorithms/weightedSearchAlgorithm":15,"../utils/historyStorage":21,"../utils/historyUI":22,"../utils/runSerializer":24}],3:[function(require,module,exports){
 const weightedSearchAlgorithm = require("../pathfindingAlgorithms/weightedSearchAlgorithm");
 const unweightedSearchAlgorithm = require("../pathfindingAlgorithms/unweightedSearchAlgorithm");
 
@@ -467,6 +512,8 @@ function Board(height, width) {
   };
   this.animationController = new AnimationController();
   this.algoSelectPulseTimer = null;
+  this.currentRunToken = null;
+  this.runContext = null;
 }
 
 Board.prototype.initialise = function () {
@@ -691,6 +738,13 @@ Board.prototype.bindAlgoDropupHandlers = function () {
 };
 
 Board.prototype.runVisualization = function () {
+  if (historyUI && typeof historyUI.getRunContext === "function" && typeof historyUI.setRunContext === "function") {
+    var runContext = historyUI.getRunContext(this);
+    if (!runContext || runContext.mode !== "replay") {
+      historyUI.setRunContext(this, { mode: "visualize", sourceRunId: null });
+    }
+  }
+
   this.clearPath("clickedButton");
   this.toggleButtons();
   let weightedAlgorithms = ["dijkstra", "CLA", "greedy"];
@@ -1245,9 +1299,18 @@ Board.prototype.drawShortestPathTimeout = function (targetNodeId, startNodeId, t
   }
 
   function onPathFrame(index) {
+    var progressIndex = Math.min(index + 1, totalPathFrames + 1);
     if (progressEl) {
-      var progressIndex = Math.min(index + 1, totalPathFrames + 1);
       progressEl.textContent = "Path " + progressIndex + "/" + (totalPathFrames + 1);
+    }
+
+    if (historyUI && typeof historyUI.updatePendingRun === "function") {
+      historyUI.updatePendingRun(board, board.currentRunToken, {
+        phase: "path",
+        current: progressIndex,
+        total: totalPathFrames + 1,
+        statusText: "Path " + progressIndex + "/" + (totalPathFrames + 1)
+      });
     }
 
     if (!currentNodesToAnimate.length) currentNodesToAnimate.push(board.nodes[board.start]);
@@ -1264,6 +1327,10 @@ Board.prototype.drawShortestPathTimeout = function (targetNodeId, startNodeId, t
   function onPathComplete() {
     if (controls) controls.classList.add("hidden");
     if (progressEl) progressEl.textContent = "";
+    if (historyUI && typeof historyUI.resolvePendingRun === "function") {
+      historyUI.resolvePendingRun(board, board.currentRunToken, { status: "success" });
+    }
+    board.currentRunToken = null;
     board.toggleButtons();
     var visitedCount = board.lastVisitedCount !== undefined ? board.lastVisitedCount :
       (board.nodesToAnimate ? board.nodesToAnimate.length : 0);
@@ -1453,6 +1520,10 @@ Board.prototype.hidePathCost = function () {
 };
 
 Board.prototype.clearPath = function (clickedButton) {
+  if (historyUI && typeof historyUI.clearPendingRun === "function" && this.currentRunToken) {
+    historyUI.clearPendingRun(this, this.currentRunToken);
+    this.currentRunToken = null;
+  }
   if (this.animationController) this.animationController.stop();
   var controls = document.getElementById("animationControls");
   if (controls) controls.classList.add("hidden");
@@ -1529,6 +1600,10 @@ Board.prototype.clearWalls = function () {
 }
 
 Board.prototype.clearBoard = function () {
+  if (historyUI && typeof historyUI.clearPendingRun === "function" && this.currentRunToken) {
+    historyUI.clearPendingRun(this, this.currentRunToken);
+    this.currentRunToken = null;
+  }
   if (this.animationController) this.animationController.stop();
   var controls = document.getElementById("animationControls");
   if (controls) controls.classList.add("hidden");
@@ -4704,6 +4779,14 @@ module.exports = {
 },{}],22:[function(require,module,exports){
 var historyStorage = require("./historyStorage");
 
+var pendingRun = null;
+var pendingRenderScheduled = false;
+var pendingRenderTimer = null;
+var pendingClearTimer = null;
+var lastPendingRenderAt = 0;
+var PENDING_RENDER_THROTTLE_MS = 100;
+var FAILED_CARD_DURATION_MS = 1200;
+
 function setHistoryLocked(board, locked) {
   var container = document.getElementById("historyList");
   if (!container) return;
@@ -4746,6 +4829,230 @@ function formatAlgorithmName(algo) {
   return names[algo] || algo;
 }
 
+function formatPendingAlgorithmName(pending) {
+  if (!pending) return "Algorithm";
+  if (pending.label) return pending.label;
+  if (pending.algorithm === "CLA") {
+    if (pending.heuristic === "extraPoweredManhattanDistance") return "Convergent Swarm";
+    return "Swarm";
+  }
+  return formatAlgorithmName(pending.algorithm || "unknown");
+}
+
+function formatPendingProgress(prefix, current, total) {
+  var safeCurrent = typeof current === "number" ? Math.max(0, current) : 0;
+  var safeTotal = typeof total === "number" ? Math.max(0, total) : 0;
+  if (safeTotal > 0) {
+    if (safeCurrent > safeTotal) safeCurrent = safeTotal;
+    return prefix + " " + safeCurrent + "/" + safeTotal;
+  }
+  return prefix + "...";
+}
+
+function getPendingStatusText(pending) {
+  if (!pending) return "Running...";
+  if (pending.statusText) return pending.statusText;
+  if (pending.phase === "path") {
+    return formatPendingProgress("Path", pending.current, pending.total);
+  }
+  if (pending.phase === "finalizing") {
+    return "Finalizing run...";
+  }
+  if (pending.phase === "failed") {
+    return "Failed";
+  }
+  return formatPendingProgress("Exploring", pending.current, pending.total);
+}
+
+function createPendingHistoryItem(pending) {
+  var item = document.createElement("div");
+  item.className = "history-item history-item-pending";
+
+  var header = document.createElement("div");
+  header.className = "history-item-header";
+
+  var name = document.createElement("span");
+  name.className = "history-item-name";
+  var modeSuffix = pending.mode === "replay" ? " (Replay)" : "";
+  name.textContent = formatPendingAlgorithmName(pending) + modeSuffix;
+
+  var badge = document.createElement("span");
+  badge.className = "history-pending-badge";
+  if (pending.phase === "failed") {
+    badge.classList.add("history-pending-badge-failed");
+    badge.textContent = "Failed";
+  } else {
+    badge.textContent = "Running";
+  }
+
+  var summary = document.createElement("div");
+  summary.className = "history-item-summary history-pending-progress";
+  summary.textContent = getPendingStatusText(pending);
+
+  header.appendChild(name);
+  header.appendChild(badge);
+  item.appendChild(header);
+  item.appendChild(summary);
+
+  return item;
+}
+
+function scheduleHistoryRender(board, immediate) {
+  if (immediate) {
+    if (pendingRenderTimer) {
+      clearTimeout(pendingRenderTimer);
+      pendingRenderTimer = null;
+    }
+    pendingRenderScheduled = false;
+    lastPendingRenderAt = Date.now();
+    renderHistoryList(board);
+    return;
+  }
+
+  if (pendingRenderScheduled) return;
+
+  var now = Date.now();
+  var elapsed = now - lastPendingRenderAt;
+  if (elapsed >= PENDING_RENDER_THROTTLE_MS) {
+    lastPendingRenderAt = now;
+    renderHistoryList(board);
+    return;
+  }
+
+  pendingRenderScheduled = true;
+  pendingRenderTimer = setTimeout(function () {
+    pendingRenderScheduled = false;
+    pendingRenderTimer = null;
+    lastPendingRenderAt = Date.now();
+    renderHistoryList(board);
+  }, PENDING_RENDER_THROTTLE_MS - elapsed);
+}
+
+function normalizeRunContext(context) {
+  var normalized = {
+    mode: "visualize",
+    sourceRunId: null
+  };
+  if (!context) return normalized;
+  if (context.mode === "replay") normalized.mode = "replay";
+  if (context.sourceRunId) normalized.sourceRunId = context.sourceRunId;
+
+  var keys = Object.keys(context);
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    if (key === "mode" || key === "sourceRunId") continue;
+    normalized[key] = context[key];
+  }
+
+  return normalized;
+}
+
+function setRunContext(board, context) {
+  if (!board) return null;
+  board.runContext = normalizeRunContext(context);
+  return board.runContext;
+}
+
+function getRunContext(board) {
+  if (!board || !board.runContext) return normalizeRunContext();
+  return normalizeRunContext(board.runContext);
+}
+
+function clearRunContext(board) {
+  if (!board) return;
+  board.runContext = null;
+}
+
+function createRunToken() {
+  return "pending-" + Date.now() + "-" + Math.floor(Math.random() * 1000000);
+}
+
+function setPendingRun(board, meta) {
+  if (pendingClearTimer) {
+    clearTimeout(pendingClearTimer);
+    pendingClearTimer = null;
+  }
+
+  var data = meta || {};
+  pendingRun = {
+    token: createRunToken(),
+    mode: data.mode === "replay" ? "replay" : "visualize",
+    sourceRunId: data.sourceRunId || null,
+    algorithm: data.algorithm || null,
+    heuristic: data.heuristic || null,
+    speed: data.speed || null,
+    phase: data.phase || "exploring",
+    current: typeof data.current === "number" ? data.current : 0,
+    total: typeof data.total === "number" ? data.total : 0,
+    startedAt: data.startedAt || Date.now(),
+    statusText: data.statusText || "",
+    persistedRunId: data.persistedRunId || null,
+    label: data.label || null
+  };
+
+  scheduleHistoryRender(board, true);
+  return pendingRun.token;
+}
+
+function updatePendingRun(board, token, patch) {
+  if (!pendingRun) return false;
+  if (token && pendingRun.token !== token) return false;
+  if (!patch) return true;
+
+  var keys = Object.keys(patch);
+  for (var i = 0; i < keys.length; i++) {
+    pendingRun[keys[i]] = patch[keys[i]];
+  }
+
+  scheduleHistoryRender(board, false);
+  return true;
+}
+
+function clearPendingRun(board, token) {
+  if (!pendingRun) return false;
+  if (token && pendingRun.token !== token) return false;
+
+  if (pendingClearTimer) {
+    clearTimeout(pendingClearTimer);
+    pendingClearTimer = null;
+  }
+
+  pendingRun = null;
+  clearRunContext(board);
+  scheduleHistoryRender(board, true);
+  return true;
+}
+
+function resolvePendingRun(board, token, payload) {
+  if (!pendingRun) return false;
+  if (token && pendingRun.token !== token) return false;
+
+  var data = payload || {};
+  var status = data.status || "success";
+
+  if (status === "success") {
+    if (data.persistedRunId) pendingRun.persistedRunId = data.persistedRunId;
+    pendingRun = null;
+    clearRunContext(board);
+    scheduleHistoryRender(board, true);
+    return true;
+  }
+
+  pendingRun.phase = "failed";
+  pendingRun.statusText = data.statusText || "Failed";
+  scheduleHistoryRender(board, true);
+  clearRunContext(board);
+
+  var tokenToClear = pendingRun.token;
+  var clearDelayMs = typeof data.clearDelayMs === "number" ? data.clearDelayMs : FAILED_CARD_DURATION_MS;
+  if (pendingClearTimer) clearTimeout(pendingClearTimer);
+  pendingClearTimer = setTimeout(function () {
+    clearPendingRun(board, tokenToClear);
+  }, clearDelayMs);
+
+  return true;
+}
+
 function renderHistoryList(board) {
   var container = document.getElementById("historyList");
   if (!container) {
@@ -4754,9 +5061,22 @@ function renderHistoryList(board) {
   }
 
   var runs = historyStorage.loadRuns();
+  var activePending = pendingRun;
+  var filteredRuns = [];
+  for (var i = 0; i < runs.length; i++) {
+    if (activePending && activePending.persistedRunId && runs[i].id === activePending.persistedRunId) {
+      continue;
+    }
+    filteredRuns.push(runs[i]);
+  }
+
   container.innerHTML = "";
 
-  if (runs.length === 0) {
+  if (activePending) {
+    container.appendChild(createPendingHistoryItem(activePending));
+  }
+
+  if (filteredRuns.length === 0 && !activePending) {
     var emptyState = document.createElement("div");
     emptyState.className = "history-empty";
     emptyState.textContent = "No saved runs yet. Click 'Visualize!' to create one.";
@@ -4765,27 +5085,29 @@ function renderHistoryList(board) {
     return;
   }
 
-  for (var i = 0; i < runs.length; i++) {
-    var run = runs[i];
+  for (var j = 0; j < filteredRuns.length; j++) {
+    var run = filteredRuns[j];
     container.appendChild(createHistoryItem(run, board));
   }
 
-  var clearAll = document.createElement("div");
-  clearAll.className = "history-clear-all";
-  clearAll.innerHTML = '<button id="clearAllHistoryBtn" type="button">Clear All History</button>';
-  container.appendChild(clearAll);
+  if (filteredRuns.length > 0) {
+    var clearAll = document.createElement("div");
+    clearAll.className = "history-clear-all";
+    clearAll.innerHTML = '<button id="clearAllHistoryBtn" type="button">Clear All History</button>';
+    container.appendChild(clearAll);
 
-  var clearBtn = document.getElementById("clearAllHistoryBtn");
-  if (clearBtn) {
-    clearBtn.onclick = function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!board || !board.buttonsOn) return;
-      if (confirm("Delete all run history? This cannot be undone.")) {
-        historyStorage.clearHistory();
-        renderHistoryList(board);
-      }
-    };
+    var clearBtn = document.getElementById("clearAllHistoryBtn");
+    if (clearBtn) {
+      clearBtn.onclick = function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!board || !board.buttonsOn) return;
+        if (confirm("Delete all run history? This cannot be undone.")) {
+          historyStorage.clearHistory();
+          renderHistoryList(board);
+        }
+      };
+    }
   }
 
   setHistoryLocked(board);
@@ -4851,6 +5173,12 @@ function createHistoryItem(run, board) {
 function loadRun(run, board, autoReplay) {
   if (!board || !board.buttonsOn) return;
   console.log("[History] Loading run:", run.id, "autoReplay:", autoReplay);
+
+  if (autoReplay) {
+    setRunContext(board, { mode: "replay", sourceRunId: run.id });
+  } else {
+    setRunContext(board, { mode: "visualize", sourceRunId: null });
+  }
 
   board.clearPath("clickedButton");
   board.clearWalls();
@@ -4928,6 +5256,8 @@ function loadRun(run, board, autoReplay) {
       var startBtn = document.getElementById("actualStartButton");
       if (startBtn) {
         startBtn.click();
+      } else {
+        clearRunContext(board);
       }
     }, 300);
   }
@@ -4943,7 +5273,14 @@ module.exports = {
   renderHistoryList: renderHistoryList,
   renderHistoryDropdown: renderHistoryList,
   loadRun: loadRun,
-  setHistoryLocked: setHistoryLocked
+  setHistoryLocked: setHistoryLocked,
+  setRunContext: setRunContext,
+  getRunContext: getRunContext,
+  clearRunContext: clearRunContext,
+  setPendingRun: setPendingRun,
+  updatePendingRun: updatePendingRun,
+  resolvePendingRun: resolvePendingRun,
+  clearPendingRun: clearPendingRun
 };
 
 },{"./historyStorage":21}],23:[function(require,module,exports){
