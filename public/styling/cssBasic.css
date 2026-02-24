@@ -418,12 +418,12 @@
 
 .tut-progress-track {
   flex: 1;
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  display: flex;
   gap: 8px;
 }
 
 .tut-progress-segment {
+  flex: 1 1 0;
   display: block;
   height: 14px;
   border-radius: 999px;
@@ -8623,6 +8623,81 @@ footer p {
   border-color: #333;
 }
 
+#algorithmInfoModal.dark-stage .modal-content.algo-modal-content {
+  background: linear-gradient(145deg, rgba(10, 15, 30, 0.96) 0%, rgba(16, 24, 47, 0.96) 100%);
+  border: 1px solid rgba(0, 180, 216, 0.28);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45), 0 0 22px rgba(0, 180, 216, 0.2);
+}
+
+#algorithmInfoModal.dark-stage .modal-header {
+  border-bottom: none;
+  padding-bottom: 14px;
+}
+
+#algorithmInfoModal.dark-stage .modal-header .close {
+  color: #d8edf5;
+  opacity: 0.86;
+}
+
+#algorithmInfoModal.dark-stage .modal-header .close:hover {
+  opacity: 1;
+}
+
+#algorithmInfoModal.dark-stage .modal-title {
+  color: #ffffff;
+}
+
+#algorithmInfoModal.dark-stage .algo-modal-meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+#algorithmInfoModal.dark-stage .algo-modal-meta .badge {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 229, 160, 0.34);
+  background: rgba(0, 229, 160, 0.12);
+  color: #7dffd8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+#algorithmInfoModal.dark-stage .algo-modal-divider {
+  height: 2px;
+  margin-top: 14px;
+  background: linear-gradient(90deg, rgba(0, 229, 160, 0.95) 0%, rgba(0, 180, 216, 0.95) 50%, rgba(0, 180, 216, 0.08) 100%);
+}
+
+#algorithmInfoModal.dark-stage .modal-footer {
+  border-top: 1px solid rgba(0, 180, 216, 0.18);
+}
+
+#algorithmInfoModal.dark-stage .algo-pseudocode {
+  background: rgba(10, 18, 34, 0.95);
+  border: 1px solid rgba(0, 180, 216, 0.26);
+}
+
+#algorithmInfoModal.dark-stage .algo-insight {
+  background: rgba(0, 180, 216, 0.1);
+  border-left-color: #00e5a0;
+}
+
+#algorithmInfoModal.dark-stage .table td {
+  border-color: rgba(0, 180, 216, 0.18);
+}
+
+#algorithmInfoModal.dark-stage .modal-footer .btn {
+  border-color: rgba(0, 180, 216, 0.45);
+  color: #dcf3fc;
+  background: rgba(0, 180, 216, 0.09);
+}
+
+#algorithmInfoModal.dark-stage .modal-footer .btn:hover {
+  background: rgba(0, 180, 216, 0.18);
+}
+
 /* Animation Controls */
 #animationControls .btn {
   margin: 0;
@@ -8788,6 +8863,119 @@ body.panel-open {
 
 #sidebar.sidebar-collapsed {
   margin-left: -280px;
+}
+
+#sidebar.dark-stage {
+  background: #0a0f1e;
+  border-right-color: rgba(0, 180, 216, 0.22);
+  box-shadow: inset -1px 0 0 rgba(0, 180, 216, 0.15), -8px 0 26px rgba(0, 0, 0, 0.35);
+}
+
+#sidebar.dark-stage .sidebar-tabs {
+  background: #ffffff;
+  border-bottom-color: #d4dde8;
+}
+
+#sidebar.dark-stage .sidebar-tab {
+  background: #ffffff;
+  color: #5a6d80;
+}
+
+#sidebar.dark-stage .sidebar-tab.active {
+  background: #ffffff;
+  color: #0f1b2d;
+  border-bottom-color: #00e5a0;
+}
+
+#sidebar.dark-stage .sidebar-section {
+  border-bottom-color: rgba(0, 180, 216, 0.15);
+}
+
+#sidebar.dark-stage .sidebar-section-title {
+  color: #74b0ce;
+}
+
+#sidebar.dark-stage #algorithmDescriptor,
+#sidebar.dark-stage .metric-label,
+#sidebar.dark-stage .sidebar-legend-item,
+#sidebar.dark-stage .node-coords,
+#sidebar.dark-stage .cost-label {
+  color: #d0deea;
+}
+
+#sidebar.dark-stage .metric,
+#sidebar.dark-stage #gCost,
+#sidebar.dark-stage #hCost,
+#sidebar.dark-stage #fCost,
+#sidebar.dark-stage #frontierSize,
+#sidebar.dark-stage #visitedCountLive,
+#sidebar.dark-stage #stepNumber {
+  color: #00e5a0;
+  text-shadow: 0 0 8px rgba(0, 229, 160, 0.33);
+}
+
+#sidebar.dark-stage .explanation-text,
+#sidebar.dark-stage .insight-text {
+  background: rgba(0, 180, 216, 0.08);
+  border-left-color: #00e5a0;
+  color: #dff2ff;
+}
+
+#sidebar.dark-stage .cost-model-info {
+  background: rgba(0, 180, 216, 0.07);
+  border: 1px solid rgba(0, 180, 216, 0.2);
+}
+
+#sidebar.dark-stage .cost-components li {
+  border-bottom-color: rgba(0, 180, 216, 0.2);
+}
+
+#sidebar.dark-stage #historyList .history-item {
+  background: rgba(10, 15, 30, 0.9);
+  border-color: rgba(0, 180, 216, 0.24);
+}
+
+#sidebar.dark-stage #historyList .history-item:hover {
+  background: rgba(16, 24, 42, 0.95);
+}
+
+#sidebar.dark-stage #historyList .history-item-name,
+#sidebar.dark-stage #historyList .history-item-summary,
+#sidebar.dark-stage #historyList .history-item-time {
+  color: #d2e6f5;
+}
+
+#sidebar.dark-stage #historyList .history-item-actions button,
+#sidebar.dark-stage #historyList .history-clear-all button {
+  background: rgba(0, 180, 216, 0.1);
+  border-color: rgba(0, 180, 216, 0.28);
+  color: #d5ebfa;
+}
+
+#sidebar.dark-stage #historyList .history-item-actions button:hover,
+#sidebar.dark-stage #historyList .history-clear-all button:hover {
+  background: rgba(0, 180, 216, 0.2);
+}
+
+#sidebar.dark-stage .sidebar-maze-dropup > .btn {
+  background: rgba(0, 180, 216, 0.1);
+  border-color: rgba(0, 180, 216, 0.3);
+  color: #d8eefc;
+}
+
+#sidebar.dark-stage .sidebar-maze-dropup > .dropdown-menu {
+  background: #0f172d;
+  border: 1px solid rgba(0, 180, 216, 0.35);
+}
+
+#sidebar.dark-stage .sidebar-maze-dropup > .dropdown-menu > li > a {
+  color: #d9ecfb;
+}
+
+#sidebar.dark-stage .sidebar-maze-dropup > .dropdown-menu > li > a:hover,
+#sidebar.dark-stage .sidebar-maze-dropup > .dropdown-menu > li > a:focus {
+  background: rgba(0, 180, 216, 0.2);
+  color: #ffffff;
 }
 
 .sidebar-tabs {
@@ -9082,6 +9270,61 @@ body.panel-open {
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
   max-width: calc(100% - 24px);
+}
+
+#playbackPod.dark-stage {
+  background: rgba(10, 15, 30, 0.7);
+  border-color: rgba(0, 180, 216, 0.38);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42), 0 0 20px rgba(0, 180, 216, 0.22);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+#playbackPod.dark-stage #adjustSpeed,
+#playbackPod.dark-stage #algoSelectBtn {
+  background: rgba(0, 180, 216, 0.1);
+  border-color: rgba(0, 180, 216, 0.34);
+  color: #dff2ff;
+}
+
+#playbackPod.dark-stage #adjustSpeed:hover,
+#playbackPod.dark-stage #adjustSpeed:focus,
+#playbackPod.dark-stage #algoSelectBtn:hover,
+#playbackPod.dark-stage #algoSelectBtn:focus {
+  background: rgba(0, 180, 216, 0.22);
+  color: #ffffff;
+}
+
+#playbackPod.dark-stage #actualStartButton {
+  background: linear-gradient(135deg, #00e5a0 0%, #00b4d8 100%);
+  border-color: transparent;
+  color: #06121f;
+  box-shadow: 0 0 15px rgba(0, 229, 160, 0.35);
+}
+
+#playbackPod.dark-stage #actualStartButton:hover,
+#playbackPod.dark-stage #actualStartButton:focus {
+  box-shadow: 0 0 24px rgba(0, 229, 160, 0.5);
+}
+
+#playbackPod.dark-stage .playback-algo-dropdown > .dropdown-menu,
+#playbackPod.dark-stage .playback-speed-dropdown > .dropdown-menu {
+  background: rgba(10, 15, 30, 0.95);
+  border: 1px solid rgba(0, 180, 216, 0.35);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), 0 0 16px rgba(0, 180, 216, 0.2);
+}
+
+#playbackPod.dark-stage .playback-algo-dropdown > .dropdown-menu > li > a,
+#playbackPod.dark-stage .playback-speed-dropdown > .dropdown-menu > li > a {
+  color: #d5ebfa;
+}
+
+#playbackPod.dark-stage .playback-algo-dropdown > .dropdown-menu > li > a:hover,
+#playbackPod.dark-stage .playback-algo-dropdown > .dropdown-menu > li > a:focus,
+#playbackPod.dark-stage .playback-speed-dropdown > .dropdown-menu > li > a:hover,
+#playbackPod.dark-stage .playback-speed-dropdown > .dropdown-menu > li > a:focus {
+  color: #ffffff;
+  background: linear-gradient(90deg, rgba(0, 229, 160, 0.2), rgba(0, 180, 216, 0.08));
 }
 
 #resultsBar:not(.hidden) + #playbackPod {
