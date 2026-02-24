@@ -1,5 +1,13 @@
 var historyStorage = require("./historyStorage");
 
+var pendingRun = null;
+var pendingRenderScheduled = false;
+var pendingRenderTimer = null;
+var pendingClearTimer = null;
+var lastPendingRenderAt = 0;
+var PENDING_RENDER_THROTTLE_MS = 100;
+var FAILED_CARD_DURATION_MS = 1200;
+
 function setHistoryLocked(board, locked) {
   var container = document.getElementById("historyList");
   if (!container) return;
@@ -42,6 +50,230 @@ function formatAlgorithmName(algo) {
   return names[algo] || algo;
 }
 
+function formatPendingAlgorithmName(pending) {
+  if (!pending) return "Algorithm";
+  if (pending.label) return pending.label;
+  if (pending.algorithm === "CLA") {
+    if (pending.heuristic === "extraPoweredManhattanDistance") return "Convergent Swarm";
+    return "Swarm";
+  }
+  return formatAlgorithmName(pending.algorithm || "unknown");
+}
+
+function formatPendingProgress(prefix, current, total) {
+  var safeCurrent = typeof current === "number" ? Math.max(0, current) : 0;
+  var safeTotal = typeof total === "number" ? Math.max(0, total) : 0;
+  if (safeTotal > 0) {
+    if (safeCurrent > safeTotal) safeCurrent = safeTotal;
+    return prefix + " " + safeCurrent + "/" + safeTotal;
+  }
+  return prefix + "...";
+}
+
+function getPendingStatusText(pending) {
+  if (!pending) return "Running...";
+  if (pending.statusText) return pending.statusText;
+  if (pending.phase === "path") {
+    return formatPendingProgress("Path", pending.current, pending.total);
+  }
+  if (pending.phase === "finalizing") {
+    return "Finalizing run...";
+  }
+  if (pending.phase === "failed") {
+    return "Failed";
+  }
+  return formatPendingProgress("Exploring", pending.current, pending.total);
+}
+
+function createPendingHistoryItem(pending) {
+  var item = document.createElement("div");
+  item.className = "history-item history-item-pending";
+
+  var header = document.createElement("div");
+  header.className = "history-item-header";
+
+  var name = document.createElement("span");
+  name.className = "history-item-name";
+  var modeSuffix = pending.mode === "replay" ? " (Replay)" : "";
+  name.textContent = formatPendingAlgorithmName(pending) + modeSuffix;
+
+  var badge = document.createElement("span");
+  badge.className = "history-pending-badge";
+  if (pending.phase === "failed") {
+    badge.classList.add("history-pending-badge-failed");
+    badge.textContent = "Failed";
+  } else {
+    badge.textContent = "Running";
+  }
+
+  var summary = document.createElement("div");
+  summary.className = "history-item-summary history-pending-progress";
+  summary.textContent = getPendingStatusText(pending);
+
+  header.appendChild(name);
+  header.appendChild(badge);
+  item.appendChild(header);
+  item.appendChild(summary);
+
+  return item;
+}
+
+function scheduleHistoryRender(board, immediate) {
+  if (immediate) {
+    if (pendingRenderTimer) {
+      clearTimeout(pendingRenderTimer);
+      pendingRenderTimer = null;
+    }
+    pendingRenderScheduled = false;
+    lastPendingRenderAt = Date.now();
+    renderHistoryList(board);
+    return;
+  }
+
+  if (pendingRenderScheduled) return;
+
+  var now = Date.now();
+  var elapsed = now - lastPendingRenderAt;
+  if (elapsed >= PENDING_RENDER_THROTTLE_MS) {
+    lastPendingRenderAt = now;
+    renderHistoryList(board);
+    return;
+  }
+
+  pendingRenderScheduled = true;
+  pendingRenderTimer = setTimeout(function () {
+    pendingRenderScheduled = false;
+    pendingRenderTimer = null;
+    lastPendingRenderAt = Date.now();
+    renderHistoryList(board);
+  }, PENDING_RENDER_THROTTLE_MS - elapsed);
+}
+
+function normalizeRunContext(context) {
+  var normalized = {
+    mode: "visualize",
+    sourceRunId: null
+  };
+  if (!context) return normalized;
+  if (context.mode === "replay") normalized.mode = "replay";
+  if (context.sourceRunId) normalized.sourceRunId = context.sourceRunId;
+
+  var keys = Object.keys(context);
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    if (key === "mode" || key === "sourceRunId") continue;
+    normalized[key] = context[key];
+  }
+
+  return normalized;
+}
+
+function setRunContext(board, context) {
+  if (!board) return null;
+  board.runContext = normalizeRunContext(context);
+  return board.runContext;
+}
+
+function getRunContext(board) {
+  if (!board || !board.runContext) return normalizeRunContext();
+  return normalizeRunContext(board.runContext);
+}
+
+function clearRunContext(board) {
+  if (!board) return;
+  board.runContext = null;
+}
+
+function createRunToken() {
+  return "pending-" + Date.now() + "-" + Math.floor(Math.random() * 1000000);
+}
+
+function setPendingRun(board, meta) {
+  if (pendingClearTimer) {
+    clearTimeout(pendingClearTimer);
+    pendingClearTimer = null;
+  }
+
+  var data = meta || {};
+  pendingRun = {
+    token: createRunToken(),
+    mode: data.mode === "replay" ? "replay" : "visualize",
+    sourceRunId: data.sourceRunId || null,
+    algorithm: data.algorithm || null,
+    heuristic: data.heuristic || null,
+    speed: data.speed || null,
+    phase: data.phase || "exploring",
+    current: typeof data.current === "number" ? data.current : 0,
+    total: typeof data.total === "number" ? data.total : 0,
+    startedAt: data.startedAt || Date.now(),
+    statusText: data.statusText || "",
+    persistedRunId: data.persistedRunId || null,
+    label: data.label || null
+  };
+
+  scheduleHistoryRender(board, true);
+  return pendingRun.token;
+}
+
+function updatePendingRun(board, token, patch) {
+  if (!pendingRun) return false;
+  if (token && pendingRun.token !== token) return false;
+  if (!patch) return true;
+
+  var keys = Object.keys(patch);
+  for (var i = 0; i < keys.length; i++) {
+    pendingRun[keys[i]] = patch[keys[i]];
+  }
+
+  scheduleHistoryRender(board, false);
+  return true;
+}
+
+function clearPendingRun(board, token) {
+  if (!pendingRun) return false;
+  if (token && pendingRun.token !== token) return false;
+
+  if (pendingClearTimer) {
+    clearTimeout(pendingClearTimer);
+    pendingClearTimer = null;
+  }
+
+  pendingRun = null;
+  clearRunContext(board);
+  scheduleHistoryRender(board, true);
+  return true;
+}
+
+function resolvePendingRun(board, token, payload) {
+  if (!pendingRun) return false;
+  if (token && pendingRun.token !== token) return false;
+
+  var data = payload || {};
+  var status = data.status || "success";
+
+  if (status === "success") {
+    if (data.persistedRunId) pendingRun.persistedRunId = data.persistedRunId;
+    pendingRun = null;
+    clearRunContext(board);
+    scheduleHistoryRender(board, true);
+    return true;
+  }
+
+  pendingRun.phase = "failed";
+  pendingRun.statusText = data.statusText || "Failed";
+  scheduleHistoryRender(board, true);
+  clearRunContext(board);
+
+  var tokenToClear = pendingRun.token;
+  var clearDelayMs = typeof data.clearDelayMs === "number" ? data.clearDelayMs : FAILED_CARD_DURATION_MS;
+  if (pendingClearTimer) clearTimeout(pendingClearTimer);
+  pendingClearTimer = setTimeout(function () {
+    clearPendingRun(board, tokenToClear);
+  }, clearDelayMs);
+
+  return true;
+}
+
 function renderHistoryList(board) {
   var container = document.getElementById("historyList");
   if (!container) {
@@ -50,9 +282,22 @@ function renderHistoryList(board) {
   }
 
   var runs = historyStorage.loadRuns();
+  var activePending = pendingRun;
+  var filteredRuns = [];
+  for (var i = 0; i < runs.length; i++) {
+    if (activePending && activePending.persistedRunId && runs[i].id === activePending.persistedRunId) {
+      continue;
+    }
+    filteredRuns.push(runs[i]);
+  }
+
   container.innerHTML = "";
 
-  if (runs.length === 0) {
+  if (activePending) {
+    container.appendChild(createPendingHistoryItem(activePending));
+  }
+
+  if (filteredRuns.length === 0 && !activePending) {
     var emptyState = document.createElement("div");
     emptyState.className = "history-empty";
     emptyState.textContent = "No saved runs yet. Click 'Visualize!' to create one.";
@@ -61,27 +306,29 @@ function renderHistoryList(board) {
     return;
   }
 
-  for (var i = 0; i < runs.length; i++) {
-    var run = runs[i];
+  for (var j = 0; j < filteredRuns.length; j++) {
+    var run = filteredRuns[j];
     container.appendChild(createHistoryItem(run, board));
   }
 
-  var clearAll = document.createElement("div");
-  clearAll.className = "history-clear-all";
-  clearAll.innerHTML = '<button id="clearAllHistoryBtn" type="button">Clear All History</button>';
-  container.appendChild(clearAll);
+  if (filteredRuns.length > 0) {
+    var clearAll = document.createElement("div");
+    clearAll.className = "history-clear-all";
+    clearAll.innerHTML = '<button id="clearAllHistoryBtn" type="button">Clear All History</button>';
+    container.appendChild(clearAll);
 
-  var clearBtn = document.getElementById("clearAllHistoryBtn");
-  if (clearBtn) {
-    clearBtn.onclick = function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!board || !board.buttonsOn) return;
-      if (confirm("Delete all run history? This cannot be undone.")) {
-        historyStorage.clearHistory();
-        renderHistoryList(board);
-      }
-    };
+    var clearBtn = document.getElementById("clearAllHistoryBtn");
+    if (clearBtn) {
+      clearBtn.onclick = function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!board || !board.buttonsOn) return;
+        if (confirm("Delete all run history? This cannot be undone.")) {
+          historyStorage.clearHistory();
+          renderHistoryList(board);
+        }
+      };
+    }
   }
 
   setHistoryLocked(board);
@@ -147,6 +394,12 @@ function createHistoryItem(run, board) {
 function loadRun(run, board, autoReplay) {
   if (!board || !board.buttonsOn) return;
   console.log("[History] Loading run:", run.id, "autoReplay:", autoReplay);
+
+  if (autoReplay) {
+    setRunContext(board, { mode: "replay", sourceRunId: run.id });
+  } else {
+    setRunContext(board, { mode: "visualize", sourceRunId: null });
+  }
 
   board.clearPath("clickedButton");
   board.clearWalls();
@@ -224,6 +477,8 @@ function loadRun(run, board, autoReplay) {
       var startBtn = document.getElementById("actualStartButton");
       if (startBtn) {
         startBtn.click();
+      } else {
+        clearRunContext(board);
       }
     }, 300);
   }
@@ -239,5 +494,12 @@ module.exports = {
   renderHistoryList: renderHistoryList,
   renderHistoryDropdown: renderHistoryList,
   loadRun: loadRun,
-  setHistoryLocked: setHistoryLocked
+  setHistoryLocked: setHistoryLocked,
+  setRunContext: setRunContext,
+  getRunContext: getRunContext,
+  clearRunContext: clearRunContext,
+  setPendingRun: setPendingRun,
+  updatePendingRun: updatePendingRun,
+  resolvePendingRun: resolvePendingRun,
+  clearPendingRun: clearPendingRun
 };
