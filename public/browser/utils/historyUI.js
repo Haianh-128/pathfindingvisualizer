@@ -1,5 +1,17 @@
 var historyStorage = require("./historyStorage");
 
+function setHistoryLocked(board, locked) {
+  var container = document.getElementById("historyList");
+  if (!container) return;
+  var shouldLock = typeof locked === "boolean" ? locked : !(board && board.buttonsOn);
+  container.classList.toggle("history-locked", shouldLock);
+  var buttons = container.querySelectorAll("button");
+  for (var i = 0; i < buttons.length; i++) {
+    buttons[i].disabled = shouldLock;
+    buttons[i].classList.toggle("control-disabled", shouldLock);
+  }
+}
+
 function formatTimestamp(ts) {
   var date = new Date(ts);
   var now = new Date();
@@ -45,6 +57,7 @@ function renderHistoryList(board) {
     emptyState.className = "history-empty";
     emptyState.textContent = "No saved runs yet. Click 'Visualize!' to create one.";
     container.appendChild(emptyState);
+    setHistoryLocked(board);
     return;
   }
 
@@ -63,12 +76,15 @@ function renderHistoryList(board) {
     clearBtn.onclick = function (e) {
       e.preventDefault();
       e.stopPropagation();
+      if (!board || !board.buttonsOn) return;
       if (confirm("Delete all run history? This cannot be undone.")) {
         historyStorage.clearHistory();
         renderHistoryList(board);
       }
     };
   }
+
+  setHistoryLocked(board);
 }
 
 function createHistoryItem(run, board) {
@@ -106,18 +122,21 @@ function createHistoryItem(run, board) {
   loadBtn.onclick = function (e) {
     e.preventDefault();
     e.stopPropagation();
+    if (!board || !board.buttonsOn) return;
     loadRun(run, board, false);
   };
 
   replayBtn.onclick = function (e) {
     e.preventDefault();
     e.stopPropagation();
+    if (!board || !board.buttonsOn) return;
     loadRun(run, board, true);
   };
 
   deleteBtn.onclick = function (e) {
     e.preventDefault();
     e.stopPropagation();
+    if (!board || !board.buttonsOn) return;
     historyStorage.deleteRun(run.id);
     renderHistoryList(board);
   };
@@ -126,6 +145,7 @@ function createHistoryItem(run, board) {
 }
 
 function loadRun(run, board, autoReplay) {
+  if (!board || !board.buttonsOn) return;
   console.log("[History] Loading run:", run.id, "autoReplay:", autoReplay);
 
   board.clearPath("clickedButton");
@@ -190,6 +210,9 @@ function loadRun(run, board, autoReplay) {
     if (valueDisplay) valueDisplay.textContent = board.currentWeightValue;
 
     board.changeStartNodeImages();
+    if (typeof board.syncAlgorithmSelectionUI === "function") {
+      board.syncAlgorithmSelectionUI();
+    }
   }
 
   renderHistoryList(board);
@@ -215,5 +238,6 @@ module.exports = {
   initHistoryUI: initHistoryUI,
   renderHistoryList: renderHistoryList,
   renderHistoryDropdown: renderHistoryList,
-  loadRun: loadRun
+  loadRun: loadRun,
+  setHistoryLocked: setHistoryLocked
 };
