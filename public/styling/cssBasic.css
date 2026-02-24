@@ -8395,6 +8395,15 @@ body.panel-open {
   background: #f8fbfd;
 }
 
+#historyList .history-item-pending {
+  border-color: #b8d7f0;
+  background: #eef6fc;
+}
+
+#historyList .history-item-pending:hover {
+  background: #e8f2fb;
+}
+
 #historyList .history-item-header {
   display: flex;
   justify-content: space-between;
@@ -8417,6 +8426,31 @@ body.panel-open {
   font-size: 12px;
   color: #6b7c8d;
   margin-bottom: 8px;
+}
+
+#historyList .history-pending-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: #d8ecfa;
+  color: #1f5f8d;
+}
+
+#historyList .history-pending-badge-failed {
+  background: #f8d7da;
+  color: #842029;
+}
+
+#historyList .history-pending-progress {
+  margin-bottom: 0;
+  color: #44637a;
+  font-weight: 600;
 }
 
 #historyList .history-item-actions {
