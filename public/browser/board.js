@@ -132,6 +132,8 @@ function Board(height, width) {
   };
   this.animationController = new AnimationController();
   this.algoSelectPulseTimer = null;
+  this.currentRunToken = null;
+  this.runContext = null;
 }
 
 Board.prototype.initialise = function () {
@@ -356,6 +358,13 @@ Board.prototype.bindAlgoDropupHandlers = function () {
 };
 
 Board.prototype.runVisualization = function () {
+  if (historyUI && typeof historyUI.getRunContext === "function" && typeof historyUI.setRunContext === "function") {
+    var runContext = historyUI.getRunContext(this);
+    if (!runContext || runContext.mode !== "replay") {
+      historyUI.setRunContext(this, { mode: "visualize", sourceRunId: null });
+    }
+  }
+
   this.clearPath("clickedButton");
   this.toggleButtons();
   let weightedAlgorithms = ["dijkstra", "CLA", "greedy"];
@@ -910,9 +919,18 @@ Board.prototype.drawShortestPathTimeout = function (targetNodeId, startNodeId, t
   }
 
   function onPathFrame(index) {
+    var progressIndex = Math.min(index + 1, totalPathFrames + 1);
     if (progressEl) {
-      var progressIndex = Math.min(index + 1, totalPathFrames + 1);
       progressEl.textContent = "Path " + progressIndex + "/" + (totalPathFrames + 1);
+    }
+
+    if (historyUI && typeof historyUI.updatePendingRun === "function") {
+      historyUI.updatePendingRun(board, board.currentRunToken, {
+        phase: "path",
+        current: progressIndex,
+        total: totalPathFrames + 1,
+        statusText: "Path " + progressIndex + "/" + (totalPathFrames + 1)
+      });
     }
 
     if (!currentNodesToAnimate.length) currentNodesToAnimate.push(board.nodes[board.start]);
@@ -929,6 +947,10 @@ Board.prototype.drawShortestPathTimeout = function (targetNodeId, startNodeId, t
   function onPathComplete() {
     if (controls) controls.classList.add("hidden");
     if (progressEl) progressEl.textContent = "";
+    if (historyUI && typeof historyUI.resolvePendingRun === "function") {
+      historyUI.resolvePendingRun(board, board.currentRunToken, { status: "success" });
+    }
+    board.currentRunToken = null;
     board.toggleButtons();
     var visitedCount = board.lastVisitedCount !== undefined ? board.lastVisitedCount :
       (board.nodesToAnimate ? board.nodesToAnimate.length : 0);
@@ -1118,6 +1140,10 @@ Board.prototype.hidePathCost = function () {
 };
 
 Board.prototype.clearPath = function (clickedButton) {
+  if (historyUI && typeof historyUI.clearPendingRun === "function" && this.currentRunToken) {
+    historyUI.clearPendingRun(this, this.currentRunToken);
+    this.currentRunToken = null;
+  }
   if (this.animationController) this.animationController.stop();
   var controls = document.getElementById("animationControls");
   if (controls) controls.classList.add("hidden");
@@ -1194,6 +1220,10 @@ Board.prototype.clearWalls = function () {
 }
 
 Board.prototype.clearBoard = function () {
+  if (historyUI && typeof historyUI.clearPendingRun === "function" && this.currentRunToken) {
+    historyUI.clearPendingRun(this, this.currentRunToken);
+    this.currentRunToken = null;
+  }
   if (this.animationController) this.animationController.stop();
   var controls = document.getElementById("animationControls");
   if (controls) controls.classList.add("hidden");
