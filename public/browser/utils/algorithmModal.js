@@ -8,14 +8,17 @@ function showAlgorithmInfo(algorithmKey) {
   var old = document.getElementById("algorithmInfoModal");
   if (old && old.parentNode) old.parentNode.removeChild(old);
 
-  var html = '<div class="modal fade" id="algorithmInfoModal" tabindex="-1">' +
+  var html = '<div class="modal fade dark-stage" id="algorithmInfoModal" tabindex="-1">' +
     '<div class="modal-dialog modal-lg">' +
     '<div class="modal-content algo-modal-content">' +
     '<div class="modal-header">' +
     '<button type="button" class="close" data-dismiss="modal">&times;</button>' +
     '<h4 class="modal-title">' + data.name + '</h4>' +
-    '<span class="badge">' + data.category + '</span> ' +
+    '<div class="algo-modal-meta">' +
+    '<span class="badge">' + data.category + '</span>' +
     '<span class="badge">' + (data.guaranteesOptimal ? "Optimal" : "Not optimal") + '</span>' +
+    '</div>' +
+    '<div class="algo-modal-divider" aria-hidden="true"></div>' +
     '</div>' +
     '<div class="modal-body">' +
     '<p>' + data.shortDescription + '</p>' +
