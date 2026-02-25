@@ -8592,6 +8592,11 @@ footer p {
   border-bottom: 1px solid #333;
 }
 
+.algo-modal-content .modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
 .algo-modal-content .modal-footer {
   border-top: 1px solid #333;
 }
@@ -8702,6 +8707,52 @@ footer p {
 
 #algorithmInfoModal.dark-stage .modal-footer .btn:hover {
   background: rgba(0, 180, 216, 0.18);
+}
+
+.algo-pitfalls,
+.algo-visual-behavior,
+.algo-compare-guide {
+  margin: 10px 0 0 18px;
+  padding-left: 12px;
+}
+
+.algo-pitfalls li,
+.algo-visual-behavior li,
+.algo-compare-guide li {
+  margin-bottom: 6px;
+  line-height: 1.45;
+}
+
+.algo-compare-modal .modal-dialog {
+  width: 92%;
+  max-width: 1240px;
+}
+
+.algo-compare-table th,
+.algo-compare-table td {
+  vertical-align: top !important;
+  white-space: normal;
+  min-width: 120px;
+}
+
+.algo-compare-table th:nth-child(1),
+.algo-compare-table td:nth-child(1) {
+  min-width: 190px;
+}
+
+.algo-compare-table th:nth-child(6),
+.algo-compare-table td:nth-child(6),
+.algo-compare-table th:nth-child(7),
+.algo-compare-table td:nth-child(7),
+.algo-compare-table th:nth-child(8),
+.algo-compare-table td:nth-child(8) {
+  min-width: 220px;
+}
+
+@media (max-width: 991px) {
+  .algo-compare-modal .modal-dialog {
+    width: 96%;
+  }
 }
 
 /* Animation Controls */
@@ -9101,6 +9152,12 @@ body.panel-open {
 
 #algoInfoBtn {
   padding: 0;
+  font-size: 12px;
+}
+
+#compareAllBtn {
+  padding: 0;
+  margin-left: 10px;
   font-size: 12px;
 }
 
