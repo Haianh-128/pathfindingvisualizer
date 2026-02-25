@@ -3,6 +3,7 @@ const unweightedSearchAlgorithm = require("../pathfindingAlgorithms/unweightedSe
 const historyStorage = require("../utils/historyStorage");
 const serializeRun = require("../utils/runSerializer");
 const historyUI = require("../utils/historyUI");
+const algorithmDescriptions = require("../utils/algorithmDescriptions");
 
 function launchAnimations(board, success, type) {
   var nodes = board.nodesToAnimate.slice(0);
@@ -29,12 +30,16 @@ function launchAnimations(board, success, type) {
     : { mode: "visualize", sourceRunId: null };
 
   if (historyUI && typeof historyUI.setPendingRun === "function") {
+    var pendingKey = algorithmDescriptions.getAlgorithmKey(board.currentAlgorithm, board.currentHeuristic);
+    var pendingDescription = algorithmDescriptions.descriptions[pendingKey];
     board.currentRunToken = historyUI.setPendingRun(board, {
       mode: runContext.mode || "visualize",
       sourceRunId: runContext.sourceRunId || null,
       algorithm: board.currentAlgorithm,
+      algorithmKey: pendingKey,
       heuristic: board.currentHeuristic,
       speed: board.speed,
+      label: pendingDescription ? pendingDescription.name : null,
       phase: "exploring",
       current: 0,
       total: nodes.length,
