@@ -1,4 +1,5 @@
 var historyStorage = require("./historyStorage");
+var algorithmDescriptions = require("./algorithmDescriptions");
 
 var pendingRun = null;
 var pendingRenderScheduled = false;
@@ -40,9 +41,10 @@ function formatAlgorithmName(algo) {
     dijkstra: "Dijkstra",
     astar: "A*",
     greedy: "Greedy",
-    CLA: "Swarm",
     swarm: "Swarm",
-    "convergent swarm": "Conv. Swarm",
+    convergentSwarm: "Convergent Swarm",
+    "convergent swarm": "Convergent Swarm",
+    CLA: "Swarm",
     bidirectional: "Bidirectional",
     bfs: "BFS",
     dfs: "DFS"
@@ -50,9 +52,34 @@ function formatAlgorithmName(algo) {
   return names[algo] || algo;
 }
 
+function resolveRunAlgorithmKey(settings) {
+  var data = settings || {};
+  if (data.algorithmKey) return data.algorithmKey;
+  var raw = data.algorithmInternal || data.algorithm;
+  if (!raw) return "unknown";
+  return algorithmDescriptions.getAlgorithmKey(raw, data.heuristic);
+}
+
+function resolveBoardAlgorithmState(settings) {
+  var data = settings || {};
+  var algorithm = data.algorithmInternal || data.algorithm || data.algorithmKey || "dijkstra";
+  var heuristic = data.heuristic || null;
+
+  if (algorithm === "swarm") {
+    algorithm = "CLA";
+    heuristic = heuristic || "manhattanDistance";
+  } else if (algorithm === "convergentSwarm" || algorithm === "convergent swarm") {
+    algorithm = "CLA";
+    heuristic = "extraPoweredManhattanDistance";
+  }
+
+  return { algorithm: algorithm, heuristic: heuristic };
+}
+
 function formatPendingAlgorithmName(pending) {
   if (!pending) return "Algorithm";
   if (pending.label) return pending.label;
+  if (pending.algorithmKey) return formatAlgorithmName(pending.algorithmKey);
   if (pending.algorithm === "CLA") {
     if (pending.heuristic === "extraPoweredManhattanDistance") return "Convergent Swarm";
     return "Swarm";
@@ -200,6 +227,7 @@ function setPendingRun(board, meta) {
     mode: data.mode === "replay" ? "replay" : "visualize",
     sourceRunId: data.sourceRunId || null,
     algorithm: data.algorithm || null,
+    algorithmKey: data.algorithmKey || null,
     heuristic: data.heuristic || null,
     speed: data.speed || null,
     phase: data.phase || "exploring",
@@ -338,7 +366,7 @@ function createHistoryItem(run, board) {
   var item = document.createElement("div");
   item.className = "history-item";
 
-  var algoName = formatAlgorithmName(run.settings ? run.settings.algorithm : "unknown");
+  var algoName = formatAlgorithmName(resolveRunAlgorithmKey(run.settings));
   var result = run.result || {};
 
   var summary;
@@ -446,8 +474,9 @@ function loadRun(run, board, autoReplay) {
   }
 
   if (run.settings) {
-    board.currentAlgorithm = run.settings.algorithm;
-    board.currentHeuristic = run.settings.heuristic;
+    var resolvedState = resolveBoardAlgorithmState(run.settings);
+    board.currentAlgorithm = resolvedState.algorithm;
+    board.currentHeuristic = resolvedState.heuristic;
     board.speed = run.settings.speed || "fast";
     board.currentWeightValue = run.settings.weightValue || 15;
 
