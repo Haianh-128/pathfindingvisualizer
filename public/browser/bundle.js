@@ -91,6 +91,7 @@ const unweightedSearchAlgorithm = require("../pathfindingAlgorithms/unweightedSe
 const historyStorage = require("../utils/historyStorage");
 const serializeRun = require("../utils/runSerializer");
 const historyUI = require("../utils/historyUI");
+const algorithmDescriptions = require("../utils/algorithmDescriptions");
 
 function launchAnimations(board, success, type) {
   var nodes = board.nodesToAnimate.slice(0);
@@ -117,12 +118,16 @@ function launchAnimations(board, success, type) {
     : { mode: "visualize", sourceRunId: null };
 
   if (historyUI && typeof historyUI.setPendingRun === "function") {
+    var pendingKey = algorithmDescriptions.getAlgorithmKey(board.currentAlgorithm, board.currentHeuristic);
+    var pendingDescription = algorithmDescriptions.descriptions[pendingKey];
     board.currentRunToken = historyUI.setPendingRun(board, {
       mode: runContext.mode || "visualize",
       sourceRunId: runContext.sourceRunId || null,
       algorithm: board.currentAlgorithm,
+      algorithmKey: pendingKey,
       heuristic: board.currentHeuristic,
       speed: board.speed,
+      label: pendingDescription ? pendingDescription.name : null,
       phase: "exploring",
       current: 0,
       total: nodes.length,
@@ -239,7 +244,7 @@ function launchAnimations(board, success, type) {
 
 module.exports = launchAnimations;
 
-},{"../pathfindingAlgorithms/unweightedSearchAlgorithm":14,"../pathfindingAlgorithms/weightedSearchAlgorithm":15,"../utils/historyStorage":21,"../utils/historyUI":22,"../utils/runSerializer":24}],3:[function(require,module,exports){
+},{"../pathfindingAlgorithms/unweightedSearchAlgorithm":14,"../pathfindingAlgorithms/weightedSearchAlgorithm":15,"../utils/algorithmDescriptions":18,"../utils/historyStorage":22,"../utils/historyUI":23,"../utils/runSerializer":25}],3:[function(require,module,exports){
 const weightedSearchAlgorithm = require("../pathfindingAlgorithms/weightedSearchAlgorithm");
 const unweightedSearchAlgorithm = require("../pathfindingAlgorithms/unweightedSearchAlgorithm");
 
@@ -391,6 +396,7 @@ const historyUI = require("./utils/historyUI");
 const weightImpactAnalyzer = require("./utils/weightImpactAnalyzer");
 const algorithmDescriptions = require("./utils/algorithmDescriptions");
 const algorithmModal = require("./utils/algorithmModal");
+const algorithmCompare = require("./utils/algorithmCompare");
 const AnimationController = require("./animations/animationController");
 const mazeSelector = require("./utils/mazeSelector");
 
@@ -580,6 +586,7 @@ Board.prototype.initSidebar = function () {
   var sidebarClearWalls = document.getElementById("sidebarClearWalls");
   var sidebarClearBoard = document.getElementById("sidebarClearBoard");
   var algoInfoBtn = document.getElementById("algoInfoBtn");
+  var compareAllBtn = document.getElementById("compareAllBtn");
 
   if (toggleButton) {
     toggleButton.addEventListener("click", function () {
@@ -625,6 +632,12 @@ Board.prototype.initSidebar = function () {
       if (!currentObject.currentAlgorithm) return;
       var key = algorithmDescriptions.getAlgorithmKey(currentObject.currentAlgorithm, currentObject.currentHeuristic);
       algorithmModal.showAlgorithmInfo(key);
+    });
+  }
+
+  if (compareAllBtn) {
+    compareAllBtn.addEventListener("click", function () {
+      algorithmCompare.showComparisonModal();
     });
   }
 
@@ -928,6 +941,7 @@ Board.prototype.setInteractiveControlsEnabled = function (isEnabled) {
   var sidebarClearPath = document.getElementById("sidebarClearPath");
   var sidebarClearWalls = document.getElementById("sidebarClearWalls");
   var sidebarClearBoard = document.getElementById("sidebarClearBoard");
+  var compareAllBtn = document.getElementById("compareAllBtn");
   var algoDropdown = document.querySelector("#playbackPod .playback-algo-dropdown");
   var speedDropdown = document.querySelector("#playbackPod .playback-speed-dropdown");
   var dropdowns = document.querySelectorAll("#playbackPod .dropdown");
@@ -958,6 +972,10 @@ Board.prototype.setInteractiveControlsEnabled = function (isEnabled) {
   if (sidebarClearBoard) {
     sidebarClearBoard.disabled = isDisabled;
     sidebarClearBoard.classList.toggle("control-disabled", isDisabled);
+  }
+  if (compareAllBtn) {
+    compareAllBtn.disabled = isDisabled;
+    compareAllBtn.classList.toggle("control-disabled", isDisabled);
   }
   if (algoDropdown) {
     algoDropdown.classList.toggle("control-disabled", isDisabled);
@@ -1842,7 +1860,7 @@ Board.prototype.changeStartNodeImages = function () {
   let guaranteed = ["dijkstra", "astar"];
   let name = "";
   if (this.currentAlgorithm === "bfs") {
-    name = "Breath-first Search";
+    name = "Breadth-first Search";
   } else if (this.currentAlgorithm === "dfs") {
     name = "Depth-first Search";
   } else if (this.currentAlgorithm === "dijkstra") {
@@ -2398,7 +2416,7 @@ window.onkeyup = (e) => {
   newBoard.keyDown = false;
 }
 
-},{"./animations/animationController":1,"./animations/launchAnimations":2,"./animations/launchInstantAnimations":3,"./getDistance":6,"./node":11,"./pathfindingAlgorithms/bidirectional":13,"./pathfindingAlgorithms/unweightedSearchAlgorithm":14,"./pathfindingAlgorithms/weightedSearchAlgorithm":15,"./utils/aiExplain":16,"./utils/algorithmDescriptions":17,"./utils/algorithmModal":18,"./utils/explanationTemplates":19,"./utils/historyUI":22,"./utils/mazeSelector":23,"./utils/weightImpactAnalyzer":25}],6:[function(require,module,exports){
+},{"./animations/animationController":1,"./animations/launchAnimations":2,"./animations/launchInstantAnimations":3,"./getDistance":6,"./node":11,"./pathfindingAlgorithms/bidirectional":13,"./pathfindingAlgorithms/unweightedSearchAlgorithm":14,"./pathfindingAlgorithms/weightedSearchAlgorithm":15,"./utils/aiExplain":16,"./utils/algorithmCompare":17,"./utils/algorithmDescriptions":18,"./utils/algorithmModal":19,"./utils/explanationTemplates":20,"./utils/historyUI":23,"./utils/mazeSelector":24,"./utils/weightImpactAnalyzer":26}],6:[function(require,module,exports){
 function getDistance(nodeOne, nodeTwo) {
   let currentCoordinates = nodeOne.id.split("-");
   let targetCoordinates = nodeTwo.id.split("-");
@@ -4400,49 +4418,89 @@ module.exports = weightedSearchAlgorithm;
 
 },{"./astar":12}],16:[function(require,module,exports){
 var gridMetrics = require("./gridMetrics");
+var algorithmDescriptions = require("./algorithmDescriptions");
 
 var ALGORITHM_META = {
   dijkstra: {
     algorithmFamily: "weighted",
     guaranteesOptimal: true,
+    complete: true,
     usesHeuristic: false,
-    selectionRule: "Always picks the node with the lowest total distance from start."
+    selectionRule: "Always picks the unvisited node with the lowest known path cost g(n).",
+    bestFor: "Weighted shortest-path problems that require guaranteed optimality.",
+    weakness: "Can explore many unnecessary nodes on large open maps."
   },
   astar: {
     algorithmFamily: "weighted",
     guaranteesOptimal: true,
+    complete: true,
     usesHeuristic: true,
-    selectionRule: "Picks the node with lowest estimated total cost (distance so far plus guess to target)."
+    selectionRule: "Picks the node with the lowest estimated total cost f(n) = g(n) + h(n).",
+    bestFor: "Fast optimal routing when the heuristic is admissible.",
+    weakness: "A weak heuristic can degrade toward Dijkstra-level exploration."
   },
   greedy: {
     algorithmFamily: "weighted",
     guaranteesOptimal: false,
+    complete: true,
     usesHeuristic: true,
-    selectionRule: "Always picks the node that looks closest to the target, ignoring distance traveled."
+    selectionRule: "Always picks the node that appears closest to the target using h(n) only.",
+    bestFor: "Quick approximate pathfinding when response time is the main goal.",
+    weakness: "Can return expensive detours because it ignores path cost-so-far."
   },
-  CLA: {
+  swarm: {
     algorithmFamily: "weighted",
     guaranteesOptimal: false,
+    complete: true,
     usesHeuristic: true,
-    selectionRule: "Blends distance traveled with estimated remaining distance."
+    selectionRule: "Blends traveled cost and heuristic guidance into one ranking score.",
+    bestFor: "Balanced visual performance in interactive demos.",
+    weakness: "Score tuning can produce unstable path quality across maps."
+  },
+  convergentSwarm: {
+    algorithmFamily: "weighted",
+    guaranteesOptimal: false,
+    complete: true,
+    usesHeuristic: true,
+    selectionRule: "Uses an aggressively powered heuristic to converge toward target quickly.",
+    bestFor: "Fast visual convergence when strict optimality is not required.",
+    weakness: "Strong heuristic bias can cross costly regions and miss lower-cost routes."
   },
   bidirectional: {
     algorithmFamily: "weighted",
     guaranteesOptimal: false,
+    complete: "variant-dependent",
     usesHeuristic: true,
-    selectionRule: "Searches from both start and target at the same time, meeting in the middle."
+    selectionRule: "Expands from start and target simultaneously and merges at a meeting node.",
+    bestFor: "Large maps where meeting in the middle reduces search depth.",
+    weakness: "Merge quality and scoring asymmetry can reduce final path quality."
   },
   bfs: {
     algorithmFamily: "unweighted",
     guaranteesOptimal: true,
+    complete: true,
     usesHeuristic: false,
-    selectionRule: "Explores all neighbors at current distance before going further."
+    selectionRule: "Explores all nodes at depth d before exploring depth d+1.",
+    bestFor: "Shortest path by steps on unweighted grids.",
+    weakness: "Not suitable for weighted cost optimization."
   },
   dfs: {
     algorithmFamily: "unweighted",
     guaranteesOptimal: false,
+    complete: true,
     usesHeuristic: false,
-    selectionRule: "Goes as deep as possible in one direction before backtracking."
+    selectionRule: "Follows one branch as deep as possible before backtracking.",
+    bestFor: "Reachability checks and structure traversal.",
+    weakness: "Path quality is highly order-dependent and often non-optimal."
+  },
+  CLA: {
+    algorithmFamily: "weighted",
+    guaranteesOptimal: false,
+    complete: true,
+    usesHeuristic: true,
+    selectionRule: "Blends traveled cost and heuristic guidance into one ranking score.",
+    bestFor: "Legacy fallback for Swarm variants.",
+    weakness: "Use canonical swarm keys for precise behavior labels."
   }
 };
 
@@ -4453,8 +4511,9 @@ function idToReadable(id) {
 }
 
 function buildRunDigest(board, visitedCount, pathLength) {
-  var algoKey = board.currentAlgorithm || "dijkstra";
-  var meta = ALGORITHM_META[algoKey] || ALGORITHM_META.dijkstra;
+  var algoInternal = board.currentAlgorithm || "dijkstra";
+  var algoKey = algorithmDescriptions.getAlgorithmKey(algoInternal, board.currentHeuristic);
+  var meta = ALGORITHM_META[algoKey] || ALGORITHM_META[algoInternal] || ALGORITHM_META.dijkstra;
   var metrics = gridMetrics.calculateGridMetrics(board);
 
   var visitedSample = [];
@@ -4494,6 +4553,7 @@ function buildRunDigest(board, visitedCount, pathLength) {
   }
 
   return {
+    algorithmInternal: algoInternal,
     algorithmKey: algoKey,
     meta: meta,
     start: idToReadable(board.start),
@@ -4589,226 +4649,533 @@ module.exports = {
   buildRunDigest: buildRunDigest
 };
 
-},{"./gridMetrics":20}],17:[function(require,module,exports){
+},{"./algorithmDescriptions":18,"./gridMetrics":21}],17:[function(require,module,exports){
+var algorithmDescriptions = require("./algorithmDescriptions");
+var algorithmModal = require("./algorithmModal");
+
+var ALGORITHM_ORDER = [
+  "dijkstra",
+  "astar",
+  "greedy",
+  "swarm",
+  "convergentSwarm",
+  "bidirectional",
+  "bfs",
+  "dfs"
+];
+
+function escapeHTML(value) {
+  return String(value === undefined || value === null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function yesNo(value) {
+  return value ? "Yes" : "No";
+}
+
+function completeLabel(value) {
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+  return "Variant dependent";
+}
+
+function weightedLabel(category) {
+  return category === "weighted" ? "Yes" : "No";
+}
+
+function buildTableRows() {
+  return ALGORITHM_ORDER.map(function (key) {
+    var data = algorithmDescriptions.descriptions[key];
+    if (!data) return "";
+    var characteristics = data.characteristics || {};
+    return (
+      "<tr>" +
+      "<td>" + escapeHTML(data.name) + "</td>" +
+      "<td>" + weightedLabel(data.category) + "</td>" +
+      "<td>" + yesNo(data.guaranteesOptimal) + "</td>" +
+      "<td>" + completeLabel(data.complete) + "</td>" +
+      "<td>" + yesNo(characteristics.usesHeuristic) + "</td>" +
+      "<td>" + escapeHTML(characteristics.selectionRule) + "</td>" +
+      "<td>" + escapeHTML(characteristics.timeComplexity) + "</td>" +
+      "<td>" + escapeHTML(characteristics.spaceComplexity) + "</td>" +
+      '<td><button class="btn btn-xs btn-default compare-open-algo" data-key="' + escapeHTML(key) + '" type="button">Open details</button></td>' +
+      "</tr>"
+    );
+  }).join("");
+}
+
+function showComparisonModal() {
+  var old = document.getElementById("algorithmCompareModal");
+  if (old && old.parentNode) old.parentNode.removeChild(old);
+
+  var html =
+    '<div class="modal fade dark-stage algo-compare-modal" id="algorithmCompareModal" tabindex="-1">' +
+    '  <div class="modal-dialog modal-lg">' +
+    '    <div class="modal-content algo-modal-content">' +
+    '      <div class="modal-header">' +
+    '        <button type="button" class="close" data-dismiss="modal">&times;</button>' +
+    '        <h4 class="modal-title">Algorithm Comparison</h4>' +
+    '        <div class="algo-modal-divider" aria-hidden="true"></div>' +
+    "      </div>" +
+    '      <div class="modal-body">' +
+    '        <div class="table-responsive">' +
+    '          <table class="table table-condensed algo-compare-table">' +
+    "            <thead>" +
+    "              <tr>" +
+    "                <th>Algorithm</th>" +
+    "                <th>Weighted</th>" +
+    "                <th>Optimal</th>" +
+    "                <th>Complete</th>" +
+    "                <th>Heuristic</th>" +
+    "                <th>Selection Rule</th>" +
+    "                <th>Time Complexity</th>" +
+    "                <th>Space Complexity</th>" +
+    "                <th>Details</th>" +
+    "              </tr>" +
+    "            </thead>" +
+    "            <tbody>" +
+    buildTableRows() +
+    "            </tbody>" +
+    "          </table>" +
+    "        </div>" +
+    '        <h5>Quick Selection Guide</h5>' +
+    '        <ul class="algo-compare-guide">' +
+    "          <li>Need guaranteed lowest-cost path on weighted maps: use Dijkstra or A*.</li>" +
+    "          <li>Need faster practical results and can accept non-optimal paths: use Greedy, Swarm, or Convergent Swarm.</li>" +
+    "          <li>Need shortest path by steps on unweighted maps: use BFS.</li>" +
+    "          <li>Need fast reachability traversal, not shortest paths: use DFS.</li>" +
+    "          <li>Need bidirectional exploration behavior on larger maps: use Bidirectional Swarm.</li>" +
+    "        </ul>" +
+    "      </div>" +
+    '      <div class="modal-footer">' +
+    '        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>' +
+    "      </div>" +
+    "    </div>" +
+    "  </div>" +
+    "</div>";
+
+  var wrapper = document.createElement("div");
+  wrapper.innerHTML = html;
+  var modal = wrapper.firstChild;
+  document.body.appendChild(modal);
+
+  modal.addEventListener("click", function (event) {
+    var target = event.target;
+    if (!target || !target.classList || !target.classList.contains("compare-open-algo")) return;
+    var key = target.getAttribute("data-key");
+    if (!key) return;
+    $("#algorithmCompareModal").modal("hide");
+    setTimeout(function () {
+      algorithmModal.showAlgorithmInfo(key);
+    }, 180);
+  });
+
+  $(modal).modal("show");
+  $(modal).on("hidden.bs.modal", function () {
+    if (modal.parentNode) modal.parentNode.removeChild(modal);
+  });
+}
+
+module.exports = {
+  showComparisonModal: showComparisonModal
+};
+
+},{"./algorithmDescriptions":18,"./algorithmModal":19}],18:[function(require,module,exports){
 var descriptions = {
   dijkstra: {
     name: "Dijkstra's Algorithm",
-    shortDescription: "Finds the shortest path by always expanding the cheapest unvisited node.",
+    shortDescription: "Expands the cheapest known node first to guarantee the lowest-cost path.",
     category: "weighted",
     guaranteesOptimal: true,
+    complete: true,
+    badges: ["weighted", "optimal", "complete", "no-heuristic"],
     howItWorks: [
-      "1. Set start distance = 0, all others = infinity",
-      "2. Pick the unvisited node with the smallest distance",
-      "3. Update neighbors if a cheaper path is found",
-      "4. Mark the current node as visited",
-      "5. Repeat until the target is reached or nodes run out"
+      "1. Initialize start cost to 0 and every other node to Infinity.",
+      "2. Repeatedly pick the unvisited node with the smallest current cost g(n).",
+      "3. Relax each neighbor: if going through the current node is cheaper, update the neighbor cost and predecessor.",
+      "4. Mark the current node as visited so it will not be processed again.",
+      "5. Stop when the target is finalized or no reachable node remains."
     ],
     pseudocode: [
+      "for each node v:",
+      "  dist[v] = Infinity",
+      "  prev[v] = null",
       "dist[start] = 0",
       "while unvisited not empty:",
-      "  current = node with MIN dist",
-      "  if current == target: DONE",
-      "  for each neighbor:",
-      "    newCost = dist[current] + edgeCost",
-      "    if newCost < dist[neighbor]:",
-      "      dist[neighbor] = newCost",
-      "      neighbor.prev = current"
+      "  current = argmin(dist[v]) over unvisited v",
+      "  if current == target: break",
+      "  for each neighbor in neighbors(current):",
+      "    candidate = dist[current] + edgeCost(current, neighbor)",
+      "    if candidate < dist[neighbor]:",
+      "      dist[neighbor] = candidate",
+      "      prev[neighbor] = current",
+      "return reconstructPath(prev, target)"
     ],
-    keyInsight: "Expanding the cheapest node first guarantees the shortest path.",
+    keyInsight: "When all edge costs are non-negative, finalizing the lowest g(n) node first locks in its optimal cost.",
     characteristics: {
-      dataStructure: "Priority queue (current implementation uses a linear scan)",
-      timeComplexity: "O(V^2) with array, O((V+E) log V) with heap",
+      dataStructure: "Priority queue (current implementation uses linear selection)",
+      timeComplexity: "Array: O(V^2); Binary heap: O((V + E) log V)",
+      spaceComplexity: "O(V)",
       usesHeuristic: false,
-      selectionRule: "Pick the node with the smallest g(n)"
-    }
+      selectionRule: "Select the unvisited node with minimum g(n)",
+      bestFor: "Weighted grids when guaranteed optimality matters more than speed.",
+      weakness: "Can explore many extra nodes when the target is far and the map is open.",
+      notesOnGridWeights: "Fully weight-aware and optimal for non-negative costs."
+    },
+    pitfalls: [
+      "Using negative edge costs breaks optimality guarantees.",
+      "Assuming linear-scan behavior represents best possible performance.",
+      "Forgetting to reset node state between runs can produce stale paths."
+    ],
+    visualBehavior: [
+      "Expands outward in a broad wave from the start.",
+      "Search frontier grows evenly in open space.",
+      "Usually visits more nodes than A* before reaching the target."
+    ]
   },
   astar: {
     name: "A* Search",
-    shortDescription: "Combines real cost so far with a heuristic estimate to guide the search.",
+    shortDescription: "Combines exact cost-so-far and estimated remaining cost to focus search efficiently.",
     category: "weighted",
     guaranteesOptimal: true,
+    complete: true,
+    badges: ["weighted", "optimal", "complete", "heuristic"],
     howItWorks: [
-      "1. Set start cost = 0 and heuristic estimate to target",
-      "2. Pick the node with the lowest f = g + h",
-      "3. Update neighbors if a cheaper path is found",
-      "4. Mark the current node as visited",
-      "5. Repeat until the target is reached"
+      "1. Track g(n) as true cost from start and h(n) as estimated cost to target.",
+      "2. Rank nodes by f(n) = g(n) + h(n) and expand the smallest f(n).",
+      "3. Relax neighbors with better g(n), then recompute their f(n).",
+      "4. Continue until target is selected or open set becomes empty.",
+      "5. Reconstruct the path from predecessor pointers."
     ],
     pseudocode: [
+      "open = {start}",
       "g[start] = 0",
       "f[start] = h(start)",
       "while open not empty:",
-      "  current = node with MIN f",
-      "  if current == target: DONE",
-      "  for each neighbor:",
-      "    gNew = g[current] + edgeCost",
-      "    if gNew < g[neighbor]:",
-      "      g[neighbor] = gNew",
-      "      f[neighbor] = gNew + h(neighbor)",
-      "      neighbor.prev = current"
+      "  current = argmin(f[v]) over v in open",
+      "  if current == target: break",
+      "  remove current from open",
+      "  for each neighbor in neighbors(current):",
+      "    tentativeG = g[current] + edgeCost(current, neighbor)",
+      "    if tentativeG < g[neighbor]:",
+      "      prev[neighbor] = current",
+      "      g[neighbor] = tentativeG",
+      "      f[neighbor] = tentativeG + h(neighbor)",
+      "      add neighbor to open",
+      "return reconstructPath(prev, target)"
     ],
-    keyInsight: "A* stays optimal when the heuristic never overestimates.",
+    keyInsight: "A good admissible heuristic sharply reduces search while preserving optimality.",
     characteristics: {
       dataStructure: "Priority queue (open set)",
-      timeComplexity: "O((V+E) log V) with heap",
+      timeComplexity: "Typical heap form: O((V + E) log V)",
+      spaceComplexity: "O(V)",
       usesHeuristic: true,
-      selectionRule: "Pick the node with the smallest f(n) = g(n) + h(n)"
-    }
+      selectionRule: "Select node with minimum f(n) = g(n) + h(n)",
+      bestFor: "Fast optimal routing when a trustworthy heuristic is available.",
+      weakness: "Bad heuristics can make A* approach Dijkstra-level exploration.",
+      notesOnGridWeights: "Weight-aware through g(n); heuristic must stay admissible for guaranteed optimality."
+    },
+    pitfalls: [
+      "Using an overestimating heuristic can lose optimality.",
+      "Confusing greedy best-first behavior with A* by ignoring g(n).",
+      "Inconsistent heuristic design can increase node reprocessing."
+    ],
+    visualBehavior: [
+      "Frontier tends to bend toward the target instead of expanding uniformly.",
+      "Often forms a focused corridor compared to Dijkstra.",
+      "On hard obstacle layouts, expansion broadens when heuristic guidance weakens."
+    ]
   },
   greedy: {
     name: "Greedy Best-first Search",
-    shortDescription: "Prioritizes nodes that look closest to the target using only h(n).",
+    shortDescription: "Chases the target aggressively using only heuristic distance.",
     category: "weighted",
     guaranteesOptimal: false,
+    complete: true,
+    badges: ["weighted", "not-optimal", "complete", "heuristic"],
     howItWorks: [
-      "1. Compute heuristic h for nodes",
-      "2. Pick the node with the smallest h",
-      "3. Expand neighbors and repeat",
-      "4. Stop when target is reached"
+      "1. Evaluate each frontier node only by h(n), estimated distance to target.",
+      "2. Expand the node with the smallest h(n).",
+      "3. Add reachable neighbors and continue choosing best-looking node.",
+      "4. Stop when target is found or frontier is exhausted."
     ],
     pseudocode: [
+      "open = {start}",
       "while open not empty:",
-      "  current = node with MIN h",
-      "  if current == target: DONE",
-      "  add neighbors to open",
-      "  mark current visited"
+      "  current = argmin(h(v)) over v in open",
+      "  if current == target: break",
+      "  remove current from open",
+      "  mark current visited",
+      "  for each neighbor in neighbors(current):",
+      "    if neighbor not visited: add neighbor to open",
+      "return reconstructPath(prev, target)"
     ],
-    keyInsight: "Fast, but can miss the shortest path because it ignores g(n).",
+    keyInsight: "Greedy is often fast to find a path, but it can ignore cheaper alternatives because it does not optimize g(n).",
     characteristics: {
-      dataStructure: "Priority queue (open set)",
-      timeComplexity: "O((V+E) log V) typical",
+      dataStructure: "Priority queue ordered by h(n)",
+      timeComplexity: "Typical heap form: O((V + E) log V)",
+      spaceComplexity: "O(V)",
       usesHeuristic: true,
-      selectionRule: "Pick the node with the smallest h(n)"
-    }
+      selectionRule: "Select node with minimum h(n)",
+      bestFor: "Quick approximate routing when speed matters more than path quality.",
+      weakness: "Path quality can be poor on weighted or trap-like maps.",
+      notesOnGridWeights: "Can cross expensive weighted nodes if they look closer to target."
+    },
+    pitfalls: [
+      "Assuming it returns shortest path because it reaches target quickly.",
+      "Using it on heavily weighted maps where g(n) matters.",
+      "Ignoring tie-break behavior that changes path shape significantly."
+    ],
+    visualBehavior: [
+      "Appears as a narrow beam aimed at the target.",
+      "Can commit to dead-end corridors and backtrack late.",
+      "Usually explores fewer nodes than optimal algorithms, but with higher path cost."
+    ]
   },
   swarm: {
     name: "Swarm Algorithm",
-    shortDescription: "Blends distance so far with a heuristic to guide the search.",
+    shortDescription: "Uses a blended score of traveled cost and target direction for faster practical routing.",
     category: "weighted",
     guaranteesOptimal: false,
+    complete: true,
+    badges: ["weighted", "not-optimal", "complete", "heuristic"],
     howItWorks: [
-      "1. Compute a combined score from g and h",
-      "2. Pick the node with the smallest score",
-      "3. Relax neighbors and repeat",
-      "4. Stop when target is reached"
+      "1. Build a composite score from movement cost and heuristic guidance.",
+      "2. Expand the frontier node with best composite score.",
+      "3. Relax neighbors and update predecessor information when a better score appears.",
+      "4. Continue until target is reached or no candidates remain."
     ],
     pseudocode: [
-      "score = g + h",
+      "open = {start}",
       "while open not empty:",
-      "  current = node with MIN score",
-      "  if current == target: DONE",
-      "  relax neighbors",
-      "  mark current visited"
+      "  current = argmin(score(v)) over v in open",
+      "  if current == target: break",
+      "  remove current from open",
+      "  for each neighbor in neighbors(current):",
+      "    candidate = blendedCost(current, neighbor, target)",
+      "    if candidate < best[neighbor]:",
+      "      best[neighbor] = candidate",
+      "      prev[neighbor] = current",
+      "      add neighbor to open",
+      "return reconstructPath(prev, target)"
     ],
-    keyInsight: "Balances speed and path quality but does not guarantee optimal.",
+    keyInsight: "Swarm trades guaranteed optimality for a practical speed-path-quality balance.",
     characteristics: {
-      dataStructure: "Priority queue (open set)",
-      timeComplexity: "O((V+E) log V) typical",
+      dataStructure: "Priority queue with blended score",
+      timeComplexity: "Typical heap form: O((V + E) log V)",
+      spaceComplexity: "O(V)",
       usesHeuristic: true,
-      selectionRule: "Pick the node with the smallest blended score"
-    }
+      selectionRule: "Select node with minimum blended score",
+      bestFor: "Interactive visualizations where fast feedback is preferred over strict optimality.",
+      weakness: "Score design is variant-dependent and can produce unstable path quality.",
+      notesOnGridWeights: "Weight handling exists but can be dominated by heuristic pull."
+    },
+    pitfalls: [
+      "Treating Swarm as equivalent to A* or Dijkstra.",
+      "Over-interpreting path quality from a single run.",
+      "Ignoring that score tuning heavily changes behavior."
+    ],
+    visualBehavior: [
+      "Frontier is directional, but broader than Greedy.",
+      "Exploration tends to arc around major obstacles.",
+      "Path quality varies more than A* across different maps."
+    ]
   },
   convergentSwarm: {
     name: "Convergent Swarm Algorithm",
-    shortDescription: "Uses an aggressive heuristic (h^7) to rush toward the target.",
+    shortDescription: "Applies strong heuristic bias (for example h^7) to converge on the target very quickly.",
     category: "weighted",
     guaranteesOptimal: false,
+    complete: true,
+    badges: ["weighted", "not-optimal", "complete", "heuristic"],
     howItWorks: [
-      "1. Use a heavily powered heuristic (h^7)",
-      "2. Pick the node with the smallest combined score",
-      "3. Relax neighbors and repeat quickly toward target"
+      "1. Amplify heuristic influence to strongly prioritize target-facing nodes.",
+      "2. Expand nodes using this aggressive composite score.",
+      "3. Relax neighbors and keep chasing the most target-aligned frontier.",
+      "4. Stop at target or exhaustion of reachable nodes."
     ],
     pseudocode: [
-      "score = g + h^7",
+      "open = {start}",
       "while open not empty:",
-      "  current = node with MIN score",
-      "  if current == target: DONE",
-      "  relax neighbors"
+      "  current = argmin(g(v) + h(v)^k) over v in open",
+      "  if current == target: break",
+      "  remove current from open",
+      "  for each neighbor in neighbors(current):",
+      "    candidate = g(current) + edgeCost + h(neighbor)^k",
+      "    if candidate < best[neighbor]:",
+      "      best[neighbor] = candidate",
+      "      prev[neighbor] = current",
+      "      add neighbor to open",
+      "return reconstructPath(prev, target)"
     ],
-    keyInsight: "Very fast but can skip better paths due to extreme heuristic bias.",
+    keyInsight: "Strong heuristic amplification makes it very fast but more likely to miss lower-cost routes.",
     characteristics: {
-      dataStructure: "Priority queue (open set)",
-      timeComplexity: "O((V+E) log V) typical",
+      dataStructure: "Priority queue with heavily weighted heuristic score",
+      timeComplexity: "Typical heap form: O((V + E) log V)",
+      spaceComplexity: "O(V)",
       usesHeuristic: true,
-      selectionRule: "Pick the node with the smallest g + h^7"
-    }
+      selectionRule: "Select node with minimum g(n) + h(n)^k",
+      bestFor: "Rapid visual convergence demos where near-target behavior is preferred.",
+      weakness: "High risk of expensive detours on weighted or maze-like maps.",
+      notesOnGridWeights: "Can under-value weight penalties when heuristic exponent dominates."
+    },
+    pitfalls: [
+      "Assuming faster convergence implies lower path cost.",
+      "Using very high heuristic powers without validating path quality.",
+      "Comparing against optimal algorithms without cost normalization."
+    ],
+    visualBehavior: [
+      "Forms a sharp beam toward target almost immediately.",
+      "Explores very little of the map before committing.",
+      "Can visibly snap through expensive regions if they are directionally attractive."
+    ]
   },
   bidirectional: {
     name: "Bidirectional Swarm Algorithm",
-    shortDescription: "Runs two searches from start and target until they meet.",
+    shortDescription: "Runs forward and backward heuristic searches that meet in the middle.",
     category: "weighted",
     guaranteesOptimal: false,
+    complete: "variant-dependent",
+    badges: ["weighted", "not-optimal", "variant-dependent", "heuristic"],
     howItWorks: [
-      "1. Start one search from start and one from target",
-      "2. Expand nodes from both sides",
-      "3. Stop when the frontiers meet"
+      "1. Start one frontier at the source and another at the target.",
+      "2. Alternate expansions from both sides using their scoring rule.",
+      "3. Detect intersection between frontiers.",
+      "4. Stitch partial paths through the meeting point."
     ],
     pseudocode: [
-      "frontA = {start}, frontB = {target}",
-      "while frontA and frontB not empty:",
-      "  expand one step from each side",
-      "  if frontiers meet: DONE"
+      "frontA = {start}",
+      "frontB = {target}",
+      "while frontA not empty and frontB not empty:",
+      "  expandBest(frontA)",
+      "  expandBest(frontB)",
+      "  if intersection(frontA, frontB) found:",
+      "    midpoint = intersection node",
+      "    break",
+      "return combinePath(start -> midpoint, midpoint -> target)"
     ],
-    keyInsight: "Can be faster in open grids but is not guaranteed optimal here.",
+    keyInsight: "Meeting in the middle can cut search depth, but path optimality depends on scoring and merge logic.",
     characteristics: {
-      dataStructure: "Two frontiers (priority queues)",
-      timeComplexity: "Often faster than single-source in practice",
+      dataStructure: "Two coordinated priority frontiers",
+      timeComplexity: "Practical speed often better than single-source variants",
+      spaceComplexity: "O(V)",
       usesHeuristic: true,
-      selectionRule: "Expand from both sides with heuristic guidance"
-    }
+      selectionRule: "Expand best-scored node from both sides and merge at meeting node",
+      bestFor: "Large open maps where reducing search depth yields visible speedups.",
+      weakness: "Path merge and score asymmetry can hurt quality or consistency.",
+      notesOnGridWeights: "Weight influence can differ per frontier and affect merge quality."
+    },
+    pitfalls: [
+      "Assuming all bidirectional variants are automatically optimal.",
+      "Ignoring asymmetry between forward and backward score updates.",
+      "Misreading meeting-point quality as final path quality."
+    ],
+    visualBehavior: [
+      "Two colored expansions grow toward each other.",
+      "Search often looks faster because depth per side is reduced.",
+      "Final path depends strongly on where frontiers intersect."
+    ]
   },
   bfs: {
     name: "Breadth-first Search",
-    shortDescription: "Explores level-by-level from the start using a queue.",
+    shortDescription: "Expands level-by-level with a queue and guarantees shortest paths in unweighted grids.",
     category: "unweighted",
     guaranteesOptimal: true,
+    complete: true,
+    badges: ["unweighted", "optimal", "complete", "no-heuristic"],
     howItWorks: [
-      "1. Put the start node in a queue",
-      "2. Pop from the front and expand neighbors",
-      "3. Push unvisited neighbors to the back",
-      "4. Repeat until target is found"
+      "1. Enqueue the start node and mark it discovered.",
+      "2. Dequeue in FIFO order and explore all valid neighbors.",
+      "3. Enqueue undiscovered neighbors with current as predecessor.",
+      "4. Stop when target is discovered or queue is empty."
     ],
     pseudocode: [
       "queue = [start]",
+      "visited[start] = true",
       "while queue not empty:",
       "  current = queue.shift()",
-      "  if current == target: DONE",
-      "  for each neighbor:",
-      "    if unvisited: queue.push(neighbor)"
+      "  if current == target: break",
+      "  for each neighbor in neighbors(current):",
+      "    if not visited[neighbor]:",
+      "      visited[neighbor] = true",
+      "      prev[neighbor] = current",
+      "      queue.push(neighbor)",
+      "return reconstructPath(prev, target)"
     ],
-    keyInsight: "The first time you reach a node is the shortest path in unweighted grids.",
+    keyInsight: "FIFO expansion guarantees the first time a node is reached is through the fewest-edge route.",
     characteristics: {
-      dataStructure: "Queue",
-      timeComplexity: "O(V+E)",
+      dataStructure: "Queue (FIFO)",
+      timeComplexity: "O(V + E)",
+      spaceComplexity: "O(V)",
       usesHeuristic: false,
-      selectionRule: "FIFO (first-in, first-out)"
-    }
+      selectionRule: "Expand oldest discovered node first",
+      bestFor: "Unweighted shortest path and clear educational traversal behavior.",
+      weakness: "Inefficient on weighted maps because edge costs are ignored.",
+      notesOnGridWeights: "Weights are not supported semantically; weighted nodes act like normal traversable cells."
+    },
+    pitfalls: [
+      "Applying BFS to weighted routing and expecting cheapest path cost.",
+      "Forgetting that queue order depends on neighbor ordering.",
+      "Confusing shortest number of steps with lowest weighted cost."
+    ],
+    visualBehavior: [
+      "Expands in concentric layers from the start.",
+      "Produces a broad wavefront around obstacles.",
+      "Usually visits many nodes before reaching distant targets."
+    ]
   },
   dfs: {
     name: "Depth-first Search",
-    shortDescription: "Dives deep along one path before backtracking.",
+    shortDescription: "Follows one branch as deep as possible before backtracking.",
     category: "unweighted",
     guaranteesOptimal: false,
+    complete: true,
+    badges: ["unweighted", "not-optimal", "complete", "no-heuristic"],
     howItWorks: [
-      "1. Push the start node onto a stack",
-      "2. Pop the top node and expand a neighbor",
-      "3. Keep going deep until stuck, then backtrack"
+      "1. Push start onto a stack.",
+      "2. Pop the most recent node and visit it.",
+      "3. Push its unvisited neighbors and continue diving.",
+      "4. Backtrack automatically when dead ends are reached.",
+      "5. Stop at target or when stack is empty."
     ],
     pseudocode: [
       "stack = [start]",
+      "visited[start] = true",
       "while stack not empty:",
       "  current = stack.pop()",
-      "  if current == target: DONE",
-      "  for each neighbor:",
-      "    if unvisited: stack.push(neighbor)"
+      "  if current == target: break",
+      "  for each neighbor in neighbors(current):",
+      "    if not visited[neighbor]:",
+      "      visited[neighbor] = true",
+      "      prev[neighbor] = current",
+      "      stack.push(neighbor)",
+      "return reconstructPath(prev, target)"
     ],
-    keyInsight: "DFS is fast but can take long detours and is not optimal.",
+    keyInsight: "DFS is memory-light and simple, but branch-first behavior can produce long non-optimal detours.",
     characteristics: {
-      dataStructure: "Stack",
-      timeComplexity: "O(V+E)",
+      dataStructure: "Stack (LIFO)",
+      timeComplexity: "O(V + E)",
+      spaceComplexity: "O(V)",
       usesHeuristic: false,
-      selectionRule: "LIFO (last-in, first-out)"
-    }
+      selectionRule: "Expand most recently discovered node first",
+      bestFor: "Fast reachability checks and structure exploration, not shortest paths.",
+      weakness: "Path quality is highly sensitive to neighbor order.",
+      notesOnGridWeights: "Ignores edge weights entirely and is unsuitable for weighted optimization."
+    },
+    pitfalls: [
+      "Using DFS when shortest path quality matters.",
+      "Assuming low node count means good path quality.",
+      "Ignoring deterministic neighbor order effects in comparisons."
+    ],
+    visualBehavior: [
+      "Creates long, narrow tendrils before broad coverage.",
+      "Backtracking appears as sudden direction changes.",
+      "Can reach target quickly by chance or very late on adversarial layouts."
+    ]
   }
 };
 
@@ -4822,8 +5189,40 @@ function getAlgorithmKey(algorithm, heuristic) {
 
 module.exports = { descriptions: descriptions, getAlgorithmKey: getAlgorithmKey };
 
-},{}],18:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 var algorithmDescriptions = require("./algorithmDescriptions");
+
+function escapeHTML(value) {
+  return String(value === undefined || value === null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function completeLabel(value) {
+  if (value === true) return "Complete";
+  if (value === false) return "Incomplete";
+  return "Variant dependent";
+}
+
+function yesNoLabel(value) {
+  return value ? "Yes" : "No";
+}
+
+function renderListItems(items, normalizeStepPrefix) {
+  if (!items || !items.length) {
+    return '<li>No items available.</li>';
+  }
+  return items.map(function (item) {
+    var text = String(item);
+    if (normalizeStepPrefix) {
+      text = text.replace(/^\s*\d+\.\s*/, "");
+    }
+    return "<li>" + escapeHTML(text) + "</li>";
+  }).join("");
+}
 
 function showAlgorithmInfo(algorithmKey) {
   var data = algorithmDescriptions.descriptions[algorithmKey];
@@ -4833,34 +5232,45 @@ function showAlgorithmInfo(algorithmKey) {
   var old = document.getElementById("algorithmInfoModal");
   if (old && old.parentNode) old.parentNode.removeChild(old);
 
+  var characteristics = data.characteristics || {};
   var html = '<div class="modal fade dark-stage" id="algorithmInfoModal" tabindex="-1">' +
     '<div class="modal-dialog modal-lg">' +
     '<div class="modal-content algo-modal-content">' +
     '<div class="modal-header">' +
     '<button type="button" class="close" data-dismiss="modal">&times;</button>' +
-    '<h4 class="modal-title">' + data.name + '</h4>' +
+    '<h4 class="modal-title">' + escapeHTML(data.name) + '</h4>' +
     '<div class="algo-modal-meta">' +
-    '<span class="badge">' + data.category + '</span>' +
-    '<span class="badge">' + (data.guaranteesOptimal ? "Optimal" : "Not optimal") + '</span>' +
+    '<span class="badge">' + escapeHTML(data.category === "weighted" ? "Weighted" : "Unweighted") + '</span>' +
+    '<span class="badge">' + (data.guaranteesOptimal ? "Shortest path guaranteed" : "No shortest-path guarantee") + '</span>' +
+    '<span class="badge">' + completeLabel(data.complete) + '</span>' +
+    '<span class="badge">' + (characteristics.usesHeuristic ? "Heuristic" : "No heuristic") + '</span>' +
     '</div>' +
     '<div class="algo-modal-divider" aria-hidden="true"></div>' +
     '</div>' +
     '<div class="modal-body">' +
-    '<p>' + data.shortDescription + '</p>' +
+    '<p>' + escapeHTML(data.shortDescription) + '</p>' +
     '<h5>How It Works</h5><ol>' +
-    data.howItWorks.map(function (s) { return '<li>' + s + '</li>'; }).join('') +
+    renderListItems(data.howItWorks || [], true) +
     '</ol>' +
     '<h5>Pseudocode</h5><pre class="algo-pseudocode">' +
-    data.pseudocode.join("\n") +
+    (data.pseudocode || []).map(escapeHTML).join("\n") +
     '</pre>' +
-    '<div class="algo-insight"><strong>Key Insight:</strong> ' + data.keyInsight + '</div>' +
+    '<div class="algo-insight"><strong>Key Insight:</strong> ' + escapeHTML(data.keyInsight) + '</div>' +
     '<h5>Characteristics</h5>' +
     '<table class="table table-condensed">' +
-    '<tr><td>Data Structure</td><td>' + data.characteristics.dataStructure + '</td></tr>' +
-    '<tr><td>Time Complexity</td><td>' + data.characteristics.timeComplexity + '</td></tr>' +
-    '<tr><td>Uses Heuristic</td><td>' + (data.characteristics.usesHeuristic ? "Yes" : "No") + '</td></tr>' +
-    '<tr><td>Selection Rule</td><td>' + data.characteristics.selectionRule + '</td></tr>' +
+    '<tr><td>Data Structure</td><td>' + escapeHTML(characteristics.dataStructure) + '</td></tr>' +
+    '<tr><td>Time Complexity</td><td>' + escapeHTML(characteristics.timeComplexity) + '</td></tr>' +
+    '<tr><td>Space Complexity</td><td>' + escapeHTML(characteristics.spaceComplexity) + '</td></tr>' +
+    '<tr><td>Uses Heuristic</td><td>' + yesNoLabel(characteristics.usesHeuristic) + '</td></tr>' +
+    '<tr><td>Selection Rule</td><td>' + escapeHTML(characteristics.selectionRule) + '</td></tr>' +
+    '<tr><td>Best For</td><td>' + escapeHTML(characteristics.bestFor) + '</td></tr>' +
+    '<tr><td>Weakness</td><td>' + escapeHTML(characteristics.weakness) + '</td></tr>' +
+    '<tr><td>Grid Weight Notes</td><td>' + escapeHTML(characteristics.notesOnGridWeights) + '</td></tr>' +
     '</table>' +
+    '<h5>Common Pitfalls</h5>' +
+    '<ul class="algo-pitfalls">' + renderListItems(data.pitfalls) + '</ul>' +
+    '<h5>Visual Behavior</h5>' +
+    '<ul class="algo-visual-behavior">' + renderListItems(data.visualBehavior) + '</ul>' +
     '</div>' +
     '<div class="modal-footer">' +
     '<button type="button" class="btn btn-default" data-dismiss="modal">Got it!</button>' +
@@ -4881,7 +5291,7 @@ function showAlgorithmInfo(algorithmKey) {
 
 module.exports = { showAlgorithmInfo: showAlgorithmInfo };
 
-},{"./algorithmDescriptions":17}],19:[function(require,module,exports){
+},{"./algorithmDescriptions":18}],20:[function(require,module,exports){
 function generateExplanation(event, algorithmKey) {
   var templates = {
     select_current: function (e) {
@@ -4982,7 +5392,7 @@ function idToCoords(id) {
 
 module.exports = { generateExplanation: generateExplanation };
 
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 /**
  * Calculate grid metrics for Feynman explanations
  *
@@ -5089,7 +5499,7 @@ function computePathLengthFromBoard(board) {
 
 module.exports = { calculateGridMetrics: calculateGridMetrics };
 
-},{}],21:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 /**
  * History Storage Module
  * Manages run history in localStorage with 5-run limit
@@ -5179,8 +5589,9 @@ module.exports = {
     MAX_RUNS: MAX_RUNS
 };
 
-},{}],22:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 var historyStorage = require("./historyStorage");
+var algorithmDescriptions = require("./algorithmDescriptions");
 
 var pendingRun = null;
 var pendingRenderScheduled = false;
@@ -5222,9 +5633,10 @@ function formatAlgorithmName(algo) {
     dijkstra: "Dijkstra",
     astar: "A*",
     greedy: "Greedy",
-    CLA: "Swarm",
     swarm: "Swarm",
-    "convergent swarm": "Conv. Swarm",
+    convergentSwarm: "Convergent Swarm",
+    "convergent swarm": "Convergent Swarm",
+    CLA: "Swarm",
     bidirectional: "Bidirectional",
     bfs: "BFS",
     dfs: "DFS"
@@ -5232,9 +5644,34 @@ function formatAlgorithmName(algo) {
   return names[algo] || algo;
 }
 
+function resolveRunAlgorithmKey(settings) {
+  var data = settings || {};
+  if (data.algorithmKey) return data.algorithmKey;
+  var raw = data.algorithmInternal || data.algorithm;
+  if (!raw) return "unknown";
+  return algorithmDescriptions.getAlgorithmKey(raw, data.heuristic);
+}
+
+function resolveBoardAlgorithmState(settings) {
+  var data = settings || {};
+  var algorithm = data.algorithmInternal || data.algorithm || data.algorithmKey || "dijkstra";
+  var heuristic = data.heuristic || null;
+
+  if (algorithm === "swarm") {
+    algorithm = "CLA";
+    heuristic = heuristic || "manhattanDistance";
+  } else if (algorithm === "convergentSwarm" || algorithm === "convergent swarm") {
+    algorithm = "CLA";
+    heuristic = "extraPoweredManhattanDistance";
+  }
+
+  return { algorithm: algorithm, heuristic: heuristic };
+}
+
 function formatPendingAlgorithmName(pending) {
   if (!pending) return "Algorithm";
   if (pending.label) return pending.label;
+  if (pending.algorithmKey) return formatAlgorithmName(pending.algorithmKey);
   if (pending.algorithm === "CLA") {
     if (pending.heuristic === "extraPoweredManhattanDistance") return "Convergent Swarm";
     return "Swarm";
@@ -5382,6 +5819,7 @@ function setPendingRun(board, meta) {
     mode: data.mode === "replay" ? "replay" : "visualize",
     sourceRunId: data.sourceRunId || null,
     algorithm: data.algorithm || null,
+    algorithmKey: data.algorithmKey || null,
     heuristic: data.heuristic || null,
     speed: data.speed || null,
     phase: data.phase || "exploring",
@@ -5520,7 +5958,7 @@ function createHistoryItem(run, board) {
   var item = document.createElement("div");
   item.className = "history-item";
 
-  var algoName = formatAlgorithmName(run.settings ? run.settings.algorithm : "unknown");
+  var algoName = formatAlgorithmName(resolveRunAlgorithmKey(run.settings));
   var result = run.result || {};
 
   var summary;
@@ -5628,8 +6066,9 @@ function loadRun(run, board, autoReplay) {
   }
 
   if (run.settings) {
-    board.currentAlgorithm = run.settings.algorithm;
-    board.currentHeuristic = run.settings.heuristic;
+    var resolvedState = resolveBoardAlgorithmState(run.settings);
+    board.currentAlgorithm = resolvedState.algorithm;
+    board.currentHeuristic = resolvedState.heuristic;
     board.speed = run.settings.speed || "fast";
     board.currentWeightValue = run.settings.weightValue || 15;
 
@@ -5686,7 +6125,7 @@ module.exports = {
   clearPendingRun: clearPendingRun
 };
 
-},{"./historyStorage":21}],23:[function(require,module,exports){
+},{"./algorithmDescriptions":18,"./historyStorage":22}],24:[function(require,module,exports){
 const recursiveDivisionMaze = require("../mazeAlgorithms/recursiveDivisionMaze");
 const otherMaze = require("../mazeAlgorithms/otherMaze");
 const otherOtherMaze = require("../mazeAlgorithms/otherOtherMaze");
@@ -5915,13 +6354,14 @@ module.exports = {
   updateSidebarLabel: updateSidebarLabel
 };
 
-},{"../animations/mazeGenerationAnimations":4,"../mazeAlgorithms/otherMaze":7,"../mazeAlgorithms/otherOtherMaze":8,"../mazeAlgorithms/recursiveDivisionMaze":9,"../mazeAlgorithms/stairDemonstration":10}],24:[function(require,module,exports){
+},{"../animations/mazeGenerationAnimations":4,"../mazeAlgorithms/otherMaze":7,"../mazeAlgorithms/otherOtherMaze":8,"../mazeAlgorithms/recursiveDivisionMaze":9,"../mazeAlgorithms/stairDemonstration":10}],25:[function(require,module,exports){
 /**
  * Run Serializer Module
  * Converts board state to a portable JSON-serializable object
  * 
  * @module utils/runSerializer
  */
+var algorithmDescriptions = require("./algorithmDescriptions");
 
 function serializeRun(board, success, visitedCount) {
     var timestamp = Date.now();
@@ -5947,6 +6387,8 @@ function serializeRun(board, success, visitedCount) {
 
         settings: {
             algorithm: board.currentAlgorithm,
+            algorithmInternal: board.currentAlgorithm,
+            algorithmKey: algorithmDescriptions.getAlgorithmKey(board.currentAlgorithm, board.currentHeuristic),
             heuristic: board.currentHeuristic,
             speed: board.speed,
             weightValue: board.currentWeightValue
@@ -6057,7 +6499,7 @@ function computePathCost(board) {
 
 module.exports = serializeRun;
 
-},{}],25:[function(require,module,exports){
+},{"./algorithmDescriptions":18}],26:[function(require,module,exports){
 const gridMetrics = require("./gridMetrics");
 
 /**
@@ -6204,4 +6646,4 @@ function reconstructPath(board) {
 
 module.exports = { analyzeWeightImpact: analyzeWeightImpact };
 
-},{"./gridMetrics":20}]},{},[5]);
+},{"./gridMetrics":21}]},{},[5]);
