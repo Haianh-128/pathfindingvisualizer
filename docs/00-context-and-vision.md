@@ -19,11 +19,11 @@ Build a learning tool where users can:
 3. Path cost experimentation beyond fixed weight=15
 
 ### Must-have (continued)
-4. Post-run AI explanation (3-sentence summary after animation completes)
+4. Post-run AI explanation (5-sentence summary + counterfactual after animation completes)
+5. Play/Pause/Step animation controls (`AnimationController` with pause/resume/step)
+6. Algorithm comparison mode (side-by-side table of all 8 algorithms)
 
-### Nice-to-have (after MVP)
-- Play/Pause/Step mode (instead of autoplay only)
-- Compare mode (same grid, different cost settings)
+### Nice-to-have (post-MVP)
 - Live AI narration (step-by-step during animation)
 
 ## Non-goals (MVP)
@@ -31,7 +31,7 @@ Build a learning tool where users can:
 - Collaboration / realtime multi-user
 - Perfect performance on extremely large grids (optimize "enough")
 
-> **Note:** MVP uses Express for static serving and a lightweight `/api/explain` endpoint (AI explanation). No database required — all state lives in browser localStorage.
+> **Note:** MVP uses Express for static serving and a lightweight `/api/explain` endpoint (AI explanation). Server also uses **Helmet** (security headers) and **express-rate-limit** (30 req/15 min). No database required — all state lives in browser localStorage.
 
 ## Success Criteria
 - After a run, a learner can answer: “Why was this node chosen?” “Why is this path cheaper?”
@@ -41,6 +41,7 @@ Build a learning tool where users can:
 ## Glossary
 - **Node**: a cell in the grid
 - **Weight**: extra cost added when entering a node
-- **Cost model**: rules for computing movement cost (base + turn + weight + ...)
+- **Cost model**: rules for computing movement cost — base cost 1 + turn penalty (1 straight, 2 for 90°, 3 for 180°) + node weight (user-configurable 0–50)
 - **Trace**: step-by-step machine-readable log of algorithm events
 - **Explanation**: human-readable text rendered from the trace
+- **Run digest**: compact JSON summary sent to AI; includes `directDistance`, `detourSteps`, `visitedPercent`, `weightsInPath`, `efficiency`, and algorithm metadata (`complete`, `weakness`, `bestFor`)
