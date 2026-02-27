@@ -16,30 +16,41 @@ Allow users to:
   - settings (algo, speed, cost model)
   - result summary (optional)
 
-## 3) Storage Schema (KISS)
-Key: `pfv:runs:v1`
+## 3) Storage Schema
+Key: `pfv:runs:v1` (managed by `historyStorage.js`, MAX_RUNS = 5)
 
 ```json
 {
-  "id": "run_1700000000",
-  "ts": 1700000000000,
-  "name": "Dijkstra — demo 1",
+  "id": "1700000000000",
+  "timestamp": 1700000000000,
+  "version": 1,
   "grid": {
     "height": 22,
-    "width": 60,
-    "start": "10-5",
-    "target": "10-40",
-    "walls": ["3-4", "3-5"],
-    "weights": [{"id": "8-9", "w": 15}]
+    "width": 60
   },
-  "algo": "dijkstra",
-  "speed": "average",
-  "weightValue": 15,
-  "result": { "found": true, "pathCost": 123, "visited": 800 }
+  "nodes": {
+    "start": "10-5",
+    "target": "10-40"
+  },
+  "walls": ["3-4", "3-5"],
+  "weights": [{"id": "8-9", "value": 15}],
+  "settings": {
+    "algorithm": "dijkstra",
+    "heuristic": "manhattanDistance",
+    "speed": "average",
+    "weightValue": 15,
+    "algorithmKey": "dijkstra"
+  },
+  "result": {
+    "found": true,
+    "pathLength": 42,
+    "pathCost": 123,
+    "nodesVisited": 800
+  }
 }
 ```
 
-> **Removed:** `heuristic`, `costModel` object. We use existing algorithm behavior, just store which algo was selected.
+> **Note:** Schema produced by `runSerializer.js` (143 LOC). Uses timestamp-based `id`, stores `heuristic` in settings (contrary to earlier removal note), and has no `name` field.
 
 ## 4) Operations
 - Save run: `unshift` + cap 5
@@ -49,14 +60,19 @@ Key: `pfv:runs:v1`
 - Delete: remove by id
 
 ## 5) UI Spec
-- History button on navbar
-- Dropdown/list:
-  - line 1: name
-  - line 2: time + algo + summary (cost/pathLen)
-  - actions: Load / Replay / Delete
+- History section in the **sidebar Controls panel** (`#historyList`), not navbar
+- Run cards with two states:
+  - **Pending run cards** — show live progress during visualization (token-based lifecycle)
+  - **Saved run cards** — show algorithm name, timestamp, summary (cost/pathLen/visited)
+    - Actions: **Load** / **Replay** / **Delete**
+- **"Clear All History"** button at bottom of history section
+- **Run context tracking** — distinguishes between `visualize` vs `replay` mode
+- **Locked state** — UI locked during active animations to prevent conflicts
+
+> **Implementation:** `historyUI.js` (534 LOC) manages the full history UI lifecycle.
 
 ## 6) Edge Cases (MVP: Keep Simple)
-- **Viewport mismatch:** Rebuild grid with stored dimensions (don't try to scale)
+- **Viewport mismatch:** `historyUI.js:loadRun()` restores walls/weights/start/target/settings but uses the **current board dimensions** (does not rebuild grid to stored dimensions)
 - **localStorage full:** Cap at 5 runs, show console warning if save fails
 - **Corrupt data:** Catch JSON parse errors, clear bad entries
 
