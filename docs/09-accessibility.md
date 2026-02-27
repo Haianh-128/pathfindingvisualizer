@@ -11,13 +11,17 @@ This document outlines accessibility considerations for the Pathfinding Visualiz
 - Basic mouse interaction for drawing
 - Visual feedback via colors and animations
 - Text labels in legend and navbar
+- **ARIA labels** on tutorial overlay (`aria-modal="true"`, `aria-label`), insight tooltip icons (`aria-label`, `aria-hidden`), and various interactive elements
+- **Tutorial keyboard navigation** — full keyboard support: ArrowLeft/Right navigation, Escape to close, Tab trapping within modal
+- **Insight tooltip icons** with `aria-label` attributes for screen reader access
 
-### What's Missing
-- Keyboard navigation
-- Screen reader support
-- Color-blind friendly palette
-- Focus indicators
-- ARIA labels
+### What's Still Missing
+- **Grid keyboard navigation** — cannot navigate cells via keyboard
+- **Screen reader grid descriptions** — no ARIA live regions for algorithm progress
+- **`prefers-reduced-motion` support** — animations not adapted
+- **`prefers-contrast: high` support** — no high-contrast mode
+- **Color-blind friendly palette** — no alternative patterns for all node states
+- **Comprehensive focus indicators** — partial coverage only
 
 ---
 
@@ -182,9 +186,10 @@ document.addEventListener('keydown', (e) => {
 ## 4) Accessibility Checklist
 
 ### MVP (Do Now)
-- [ ] Add focus outlines to interactive elements
+- [x] Add `aria-label` to navbar buttons — **Done** (tutorial overlay, tooltip icons)
+- [x] Add keyboard support for tutorial modal — **Done** (ArrowLeft/Right, Escape, Tab trapping)
+- [ ] Add focus outlines to all interactive elements
 - [ ] Ensure 4.5:1 text contrast ratio
-- [ ] Add `aria-label` to navbar buttons
 - [ ] Add `alt` text to any images
 
 ### Post-MVP (Do Later)
