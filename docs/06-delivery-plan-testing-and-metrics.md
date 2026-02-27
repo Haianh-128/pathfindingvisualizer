@@ -39,7 +39,7 @@
 
 ### AI Explanation Feature
 - Only successful runs (path found) trigger AI explanation
-- Output is exactly 3 sentences
+- Output is exactly 5 sentences (includes one counterfactual starting with "If")
 - No jargon; uses only digest numbers (visitedCount, pathLength, etc.)
 - AI does not invent steps or data beyond provided digest
 
@@ -62,11 +62,20 @@
 | Scenario | Expected Result |
 |----------|----------------|
 | Failure run (no path) | No explanation shown |
-| Server down / API error | Fallback text: "The algorithm visited X nodes and found a path of Y steps." |
+| Server down / API error | Fallback: 5-sentence deterministic paragraph from `server.js:generateFallback()` including visited count, grid coverage, path length, straight-line distance, detour steps, wall/weight counts, counterfactual |
 | Slow API response | Loading state shown, then explanation |
 
 ## 5) Decided Defaults
 - **Weight slider:** 0–50, default 15
 - **Explain mode:** Dijkstra + A* show g/h/f. BFS/DFS show simpler text.
 - **History:** Load restores grid. User clicks Visualize to replay.
-- **Out of scope (MVP):** pause/step controls, live AI narration (step-by-step during animation), trace export, storing AI explanation in history
+- **Out of scope:** ~~pause/step controls~~ (**✅ Implemented** via `AnimationController`), live AI narration (step-by-step during animation), trace export, storing AI explanation in history
+
+---
+
+## 6) Existing Test Files
+
+| File | Description |
+|------|-------------|
+| `tests/algorithmDescriptionsSchema.test.js` | Validates schema of all 8 algorithm description objects |
+| `tests/weightImpactAnalyzer.test.js` | Tests weight impact analysis logic |
