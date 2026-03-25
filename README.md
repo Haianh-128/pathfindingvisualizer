@@ -57,7 +57,7 @@ npm install
 # Copy environment template
 cp .env.example .env
 
-# Start the server (with nodemon auto-reload)
+# Start the server
 npm start
 ```
 
@@ -67,7 +67,7 @@ Open http://localhost:1337 in your browser.
 
 | Command | Description |
 |---------|-------------|
-| `npm start` | Start dev server with nodemon (port 1337) |
+| `npm start` | Start server via Node.js (port 1337) |
 | `npm run build:client` | Bundle client JS via Browserify |
 | `npm run watch` | Watch mode — auto-rebuild bundle on file changes |
 | `npm test` | Run unit tests (weightImpactAnalyzer + algorithmDescriptionsSchema) |

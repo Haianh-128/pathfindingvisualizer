@@ -16,7 +16,7 @@ This document provides a comprehensive analysis of the existing codebase to help
 | AI | OpenAI Chat Completions API (gpt-4o-mini) | via `server.js` |
 | Env Config | dotenv | npm |
 | Bundler | Browserify + Watchify | npm (dev) |
-| Dev Server | Nodemon | npm |
+| Runtime Server | Node.js (`node server.js` via `npm start`) | npm |
 
 **No TypeScript, no React, no build-time transpilation.**
 
