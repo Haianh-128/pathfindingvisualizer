@@ -15,6 +15,12 @@ const algorithmCompare = require("./utils/algorithmCompare");
 const AnimationController = require("./animations/animationController");
 const mazeSelector = require("./utils/mazeSelector");
 
+const MOBILE_LAYOUT_BREAKPOINT = 899;
+const DESKTOP_DEFAULT_INPUT_MODE = "wall";
+const MOBILE_DEFAULT_INPUT_MODE = "pan";
+const MUTATING_INPUT_MODES = ["wall", "weight", "erase", "move-start", "move-target"];
+const INPUT_MODES = ["pan"].concat(MUTATING_INPUT_MODES);
+
 const NAV_INFO_MAP = {
   navAlgoDijkstra: "dijkstra",
   navAlgoAstar: "astar",
@@ -108,6 +114,36 @@ const COST_TOOLTIP_KEYS = {
   }
 };
 
+function readLayoutChromeMetrics() {
+  var navbar = document.getElementById("navbarDiv");
+  var resultsBar = document.getElementById("resultsBar");
+  var playbackPod = document.getElementById("playbackPod");
+  var toolbar = document.getElementById("mobileEditToolbar");
+  var resultsVisible = resultsBar && !resultsBar.classList.contains("hidden");
+  var toolbarVisible = toolbar && window.getComputedStyle(toolbar).display !== "none";
+
+  return {
+    navbarHeight: navbar ? navbar.getBoundingClientRect().height : 56,
+    resultsHeight: resultsVisible ? resultsBar.getBoundingClientRect().height : 0,
+    playbackHeight: playbackPod ? playbackPod.getBoundingClientRect().height : 56,
+    toolbarHeight: toolbarVisible ? toolbar.getBoundingClientRect().height : 0
+  };
+}
+
+function writeLayoutChromeMetrics(metrics) {
+  var root = document.documentElement;
+  var source = metrics || {};
+  var navbarHeight = Number.isFinite(source.navbarHeight) ? source.navbarHeight : 56;
+  var resultsHeight = Number.isFinite(source.resultsHeight) ? source.resultsHeight : 0;
+  var playbackHeight = Number.isFinite(source.playbackHeight) ? source.playbackHeight : 56;
+  var toolbarHeight = Number.isFinite(source.toolbarHeight) ? source.toolbarHeight : 0;
+
+  root.style.setProperty("--navbar-height", Math.round(navbarHeight) + "px");
+  root.style.setProperty("--results-bar-height", Math.round(resultsHeight) + "px");
+  root.style.setProperty("--playback-pod-height", Math.round(playbackHeight) + "px");
+  root.style.setProperty("--mobile-edit-toolbar-height", Math.round(toolbarHeight) + "px");
+}
+
 function getSelectionByState(algorithm, heuristic) {
   if (algorithm === "swarm") {
     algorithm = "CLA";
@@ -167,12 +203,23 @@ function Board(height, width) {
   this.currentRunToken = null;
   this.runContext = null;
   this.costTooltipMode = null;
+  this.inputMode = DESKTOP_DEFAULT_INPUT_MODE;
+  this.isMobileLayout = false;
+  this.activePointerId = null;
+  this.activeInteraction = null;
+  this.layoutMeasureFrame = null;
+  this.insightTooltipsInitialized = false;
+  this.insightTooltipEventsBound = false;
+  this.activeInsightTooltipElement = null;
 }
 
 Board.prototype.initialise = function () {
   this.createGrid();
+  this.syncResponsiveLayout(true);
   this.addEventListeners();
   this.initSidebar();
+  this.initMobileInputToolbar();
+  this.syncMobileChromeState();
   this.initInsightTooltips();
   mazeSelector.initSidebarMazeDropup(this);
   historyUI.initHistoryUI(this);
@@ -180,6 +227,7 @@ Board.prototype.initialise = function () {
   this.setAlgorithmSelectionUI("Select Algorithm");
   this.setInteractiveControlsEnabled(false);
   this.initTutorial();
+  this.updateLayoutMetrics();
 };
 
 Board.prototype.initSidebar = function () {
@@ -202,6 +250,7 @@ Board.prototype.initSidebar = function () {
   var sidebarClearBoard = document.getElementById("sidebarClearBoard");
   var algoInfoBtn = document.getElementById("algoInfoBtn");
   var compareAllBtn = document.getElementById("compareAllBtn");
+  var sidebarBackdrop = document.getElementById("sidebarBackdrop");
 
   if (toggleButton) {
     toggleButton.addEventListener("click", function () {
@@ -256,36 +305,190 @@ Board.prototype.initSidebar = function () {
     });
   }
 
+  if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener("click", function () {
+      if (!currentObject.isMobileLayout || !currentObject.sidebarOpen) return;
+      currentObject.toggleSidebar(false);
+    });
+  }
+
   window.addEventListener("resize", function () {
+    currentObject.syncResponsiveLayout();
     currentObject.applySidebarState();
+    currentObject.scheduleLayoutMeasure();
   });
 
   this.updateExplanationPanel(null);
 };
 
-Board.prototype.applySidebarState = function () {
-  var sidebar = document.getElementById("sidebar");
-  if (!sidebar) return;
+Board.prototype.initMobileInputToolbar = function () {
+  var toolbar = document.getElementById("mobileEditToolbar");
+  if (!toolbar) return;
 
-  if (window.innerWidth <= 1199) {
-    sidebar.classList.remove("sidebar-collapsed");
-    if (this.sidebarOpen) {
-      sidebar.classList.add("sidebar-open");
-    } else {
-      sidebar.classList.remove("sidebar-open");
-    }
-    return;
+  var currentObject = this;
+  toolbar.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-input-mode]");
+    if (!button || button.disabled) return;
+    var mode = button.getAttribute("data-input-mode");
+    currentObject.setInputMode(mode);
+  });
+
+  this.updateInputModeUI();
+  this.refreshMobileToolAvailability();
+};
+
+Board.prototype.syncResponsiveLayout = function (force) {
+  var nextIsMobile = window.innerWidth <= MOBILE_LAYOUT_BREAKPOINT;
+  var changed = this.isMobileLayout !== nextIsMobile;
+  this.isMobileLayout = nextIsMobile;
+
+  if (force || changed) {
+    this.inputMode = this.isMobileLayout ? MOBILE_DEFAULT_INPUT_MODE : DESKTOP_DEFAULT_INPUT_MODE;
   }
 
-  sidebar.classList.remove("sidebar-open");
-  if (this.sidebarOpen) {
-    sidebar.classList.remove("sidebar-collapsed");
-  } else {
-    sidebar.classList.add("sidebar-collapsed");
+  if (this.inputMode === "weight" && !this.isWeightModeAvailable()) {
+    this.inputMode = this.isMobileLayout ? MOBILE_DEFAULT_INPUT_MODE : DESKTOP_DEFAULT_INPUT_MODE;
+  }
+
+  this.updateInputModeUI();
+  this.refreshMobileToolAvailability();
+  this.syncMobileChromeState();
+
+  if ((force || changed) && this.insightTooltipsInitialized) {
+    this.hideInsightTooltips();
+    this.initInsightTooltips();
   }
 };
 
+Board.prototype.scheduleLayoutMeasure = function () {
+  var currentObject = this;
+  if (this.layoutMeasureFrame) return;
+  this.layoutMeasureFrame = window.requestAnimationFrame(function () {
+    currentObject.layoutMeasureFrame = null;
+    currentObject.updateLayoutMetrics();
+  });
+};
+
+Board.prototype.updateLayoutMetrics = function () {
+  var metrics = readLayoutChromeMetrics();
+  if (!this.isMobileLayout) {
+    metrics.toolbarHeight = 0;
+  }
+  writeLayoutChromeMetrics(metrics);
+};
+
+Board.prototype.setInputMode = function (mode) {
+  if (INPUT_MODES.indexOf(mode) === -1) return;
+  if (!this.isMobileLayout && mode !== DESKTOP_DEFAULT_INPUT_MODE) return;
+  if (mode === "weight" && !this.isWeightModeAvailable()) return;
+  if (!this.buttonsOn && MUTATING_INPUT_MODES.indexOf(mode) !== -1) return;
+
+  this.inputMode = mode;
+  this.updateInputModeUI();
+  this.refreshMobileToolAvailability();
+  this.scheduleLayoutMeasure();
+};
+
+Board.prototype.getEffectiveInputMode = function (node) {
+  if (!this.isMobileLayout) {
+    if (node && node.status === "start") return "move-start";
+    if (node && node.status === "target") return "move-target";
+    if (this.keyDown === 87 && this.isWeightModeAvailable()) return "weight";
+    return DESKTOP_DEFAULT_INPUT_MODE;
+  }
+
+  if (!this.buttonsOn && MUTATING_INPUT_MODES.indexOf(this.inputMode) !== -1) {
+    return MOBILE_DEFAULT_INPUT_MODE;
+  }
+
+  if (this.inputMode === "weight" && !this.isWeightModeAvailable()) {
+    return MOBILE_DEFAULT_INPUT_MODE;
+  }
+
+  return this.inputMode || MOBILE_DEFAULT_INPUT_MODE;
+};
+
+Board.prototype.isWeightModeAvailable = function () {
+  return this.currentAlgorithm !== "bfs" && this.currentAlgorithm !== "dfs";
+};
+
+Board.prototype.updateInputModeUI = function () {
+  var toolbar = document.getElementById("mobileEditToolbar");
+  if (!toolbar) return;
+
+  var activeMode = this.getEffectiveInputMode();
+  var buttons = toolbar.querySelectorAll("[data-input-mode]");
+  for (var i = 0; i < buttons.length; i++) {
+    var button = buttons[i];
+    var isActive = button.getAttribute("data-input-mode") === activeMode;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  }
+};
+
+Board.prototype.refreshMobileToolAvailability = function () {
+  var toolbar = document.getElementById("mobileEditToolbar");
+  if (!toolbar) return;
+
+  var buttons = toolbar.querySelectorAll("[data-input-mode]");
+  for (var i = 0; i < buttons.length; i++) {
+    var button = buttons[i];
+    var mode = button.getAttribute("data-input-mode");
+    var isPan = mode === "pan";
+    var disabled = !this.isMobileLayout || (!isPan && !this.buttonsOn) || (mode === "weight" && !this.isWeightModeAvailable());
+    button.disabled = disabled;
+    button.classList.toggle("control-disabled", disabled);
+  }
+};
+
+Board.prototype.syncMobileChromeState = function () {
+  var toolbar = document.getElementById("mobileEditToolbar");
+  if (!toolbar) return;
+
+  var controls = document.getElementById("animationControls");
+  var startButton = document.getElementById("startButtonStart");
+  var controlsHidden = !controls || controls.classList.contains("hidden");
+  var runningStateHidden = !!(startButton && startButton.classList.contains("hidden"));
+  var shouldShowToolbar = this.isMobileLayout && !this.sidebarOpen && controlsHidden && !runningStateHidden;
+  var nextHidden = !shouldShowToolbar;
+  var changed = toolbar.classList.contains("hidden") !== nextHidden;
+
+  toolbar.classList.toggle("hidden", nextHidden);
+  toolbar.setAttribute("aria-hidden", nextHidden ? "true" : "false");
+
+  if (changed) {
+    this.scheduleLayoutMeasure();
+  }
+};
+
+Board.prototype.applySidebarState = function () {
+  var sidebar = document.getElementById("sidebar");
+  var backdrop = document.getElementById("sidebarBackdrop");
+  if (!sidebar) return;
+
+  var isOverlayLayout = window.innerWidth <= 1199;
+  var isBottomSheetLayout = window.innerWidth <= MOBILE_LAYOUT_BREAKPOINT;
+
+  if (isOverlayLayout) {
+    sidebar.classList.remove("sidebar-collapsed");
+    sidebar.classList.toggle("sidebar-open", !!this.sidebarOpen);
+  } else {
+    sidebar.classList.remove("sidebar-open");
+    sidebar.classList.toggle("sidebar-collapsed", !this.sidebarOpen);
+  }
+
+  if (backdrop) {
+    var showBackdrop = isBottomSheetLayout && !!this.sidebarOpen;
+    backdrop.classList.toggle("is-active", showBackdrop);
+    backdrop.setAttribute("aria-hidden", showBackdrop ? "false" : "true");
+  }
+
+  document.body.classList.toggle("sidebar-sheet-open", isBottomSheetLayout && !!this.sidebarOpen);
+  this.syncMobileChromeState();
+};
+
 Board.prototype.toggleSidebar = function (forceOpen) {
+  this.hideInsightTooltips();
   if (typeof forceOpen === "boolean") {
     this.sidebarOpen = forceOpen;
   } else {
@@ -293,6 +496,7 @@ Board.prototype.toggleSidebar = function (forceOpen) {
   }
   this.applySidebarState();
   localStorage.setItem("sidebarOpen", this.sidebarOpen);
+  this.scheduleLayoutMeasure();
 };
 
 Board.prototype.setSidebarTab = function (tab) {
@@ -302,6 +506,7 @@ Board.prototype.setSidebarTab = function (tab) {
   var insightPanel = document.getElementById("panelInsight");
   if (!controlsTab || !insightTab || !controlsPanel || !insightPanel) return;
 
+  this.hideInsightTooltips();
   var showInsight = tab === "insight";
   controlsTab.classList.toggle("active", !showInsight);
   insightTab.classList.toggle("active", showInsight);
@@ -341,13 +546,95 @@ Board.prototype.syncCostTooltipsForAlgorithmMode = function (isSwarmOverride) {
 
   if (!window.jQuery || !window.jQuery.fn || !window.jQuery.fn.tooltip) return;
   var $costTooltips = window.jQuery("#gCostTooltip, #hCostTooltip, #fCostTooltip");
+  var activeCostTooltip = !!(
+    this.activeInsightTooltipElement &&
+    ["gCostTooltip", "hCostTooltip", "fCostTooltip"].indexOf(this.activeInsightTooltipElement.id) !== -1
+  );
   $costTooltips.each(function () {
     var $el = window.jQuery(this);
     if ($el.data("bs.tooltip")) {
       $el.tooltip("hide");
       $el.tooltip("fixTitle");
     }
+    this.removeAttribute("data-tooltip-open");
+    this.setAttribute("aria-expanded", "false");
   });
+  if (activeCostTooltip) {
+    if (typeof this.activeInsightTooltipElement.blur === "function") {
+      this.activeInsightTooltipElement.blur();
+    }
+    this.activeInsightTooltipElement = null;
+  }
+};
+
+Board.prototype.hideInsightTooltips = function () {
+  var tooltipElements = document.querySelectorAll("[data-tooltip-key]");
+  if (tooltipElements && tooltipElements.length) {
+    for (var i = 0; i < tooltipElements.length; i++) {
+      tooltipElements[i].removeAttribute("data-tooltip-open");
+      tooltipElements[i].setAttribute("aria-expanded", "false");
+    }
+  }
+
+  if (window.jQuery && window.jQuery.fn && window.jQuery.fn.tooltip && tooltipElements && tooltipElements.length) {
+    window.jQuery(tooltipElements).each(function () {
+      var $el = window.jQuery(this);
+      if ($el.data("bs.tooltip")) {
+        $el.tooltip("hide");
+      }
+    });
+  }
+
+  if (this.activeInsightTooltipElement && typeof this.activeInsightTooltipElement.blur === "function") {
+    this.activeInsightTooltipElement.blur();
+  }
+  if (document.activeElement && document.activeElement.matches && document.activeElement.matches("[data-tooltip-key]") && typeof document.activeElement.blur === "function") {
+    document.activeElement.blur();
+  }
+  this.activeInsightTooltipElement = null;
+};
+
+Board.prototype.bindInsightTooltipInteractions = function () {
+  if (this.insightTooltipEventsBound) return;
+
+  var currentObject = this;
+  var insightPanel = document.getElementById("panelInsight");
+  if (!insightPanel) return;
+
+  insightPanel.addEventListener("click", function (event) {
+    if (!currentObject.isMobileLayout) return;
+
+    var trigger = event.target.closest("[data-tooltip-key]");
+    if (!trigger || !insightPanel.contains(trigger)) {
+      currentObject.hideInsightTooltips();
+      return;
+    }
+
+    event.preventDefault();
+    var wasOpen = currentObject.activeInsightTooltipElement === trigger && trigger.getAttribute("data-tooltip-open") === "true";
+    currentObject.hideInsightTooltips();
+    if (wasOpen) return;
+
+    var $trigger = window.jQuery(trigger);
+    if (!$trigger.data("bs.tooltip")) return;
+    $trigger.tooltip("show");
+    trigger.setAttribute("data-tooltip-open", "true");
+    trigger.setAttribute("aria-expanded", "true");
+    currentObject.activeInsightTooltipElement = trigger;
+  });
+
+  insightPanel.addEventListener("scroll", function () {
+    if (!currentObject.isMobileLayout) return;
+    currentObject.hideInsightTooltips();
+  }, { passive: true });
+
+  document.addEventListener("click", function (event) {
+    if (!currentObject.isMobileLayout) return;
+    if (insightPanel.contains(event.target)) return;
+    currentObject.hideInsightTooltips();
+  });
+
+  this.insightTooltipEventsBound = true;
 };
 
 Board.prototype.initInsightTooltips = function () {
@@ -360,12 +647,14 @@ Board.prototype.initInsightTooltips = function () {
     this.applyInsightTooltipCopy(tooltipElements[i], key);
   }
 
+  this.bindInsightTooltipInteractions();
+  this.hideInsightTooltips();
   var $tooltips = window.jQuery(tooltipElements);
   $tooltips.tooltip("destroy");
   $tooltips.tooltip({
     container: "body",
-    placement: "auto right",
-    trigger: "hover focus click",
+    placement: this.isMobileLayout ? "top" : "auto right",
+    trigger: this.isMobileLayout ? "manual" : "hover focus click",
     viewport: {
       selector: "body",
       padding: 8
@@ -374,6 +663,7 @@ Board.prototype.initInsightTooltips = function () {
   });
 
   this.syncCostTooltipsForAlgorithmMode();
+  this.insightTooltipsInitialized = true;
 };
 
 Board.prototype.activateControlsTab = function () {
@@ -386,16 +676,21 @@ Board.prototype.activateInsightTab = function () {
 
 Board.prototype.updateRunningStateUI = function (isRunning) {
   var startButton = document.getElementById("startButtonStart");
+  var controls = document.getElementById("animationControls");
   if (startButton) {
     startButton.classList.toggle("hidden", isRunning);
   }
 
-  if (!isRunning) {
-    var controls = document.getElementById("animationControls");
+  if (isRunning) {
+    if (controls) controls.classList.remove("hidden");
+  } else {
     var progress = document.getElementById("animationProgress");
     if (controls) controls.classList.add("hidden");
     if (progress) progress.textContent = "";
   }
+
+  this.syncMobileChromeState();
+  this.scheduleLayoutMeasure();
 };
 
 Board.prototype.setAlgorithmSelectionUI = function (label) {
@@ -422,6 +717,11 @@ Board.prototype.applyAlgorithmSelection = function (selection) {
   this.changeStartNodeImages();
   this.setAlgorithmSelectionUI(selection.label);
   this.syncCostTooltipsForAlgorithmMode();
+  if (this.inputMode === "weight" && !this.isWeightModeAvailable()) {
+    this.inputMode = this.isMobileLayout ? MOBILE_DEFAULT_INPUT_MODE : DESKTOP_DEFAULT_INPUT_MODE;
+  }
+  this.updateInputModeUI();
+  this.refreshMobileToolAvailability();
 };
 
 Board.prototype.pulseAlgoSelectButton = function () {
@@ -520,6 +820,8 @@ Board.prototype.runVisualization = function () {
     }
     this.algoDone = true;
   }
+
+  this.updateRunningStateUI(true);
 };
 
 Board.prototype.bindStartVisualizeHandler = function () {
@@ -613,6 +915,13 @@ Board.prototype.setInteractiveControlsEnabled = function (isEnabled) {
   if (historyUI && typeof historyUI.setHistoryLocked === "function") {
     historyUI.setHistoryLocked(this, isDisabled);
   }
+
+  if (isDisabled && this.isMobileLayout && this.inputMode !== MOBILE_DEFAULT_INPUT_MODE) {
+    this.inputMode = MOBILE_DEFAULT_INPUT_MODE;
+    this.updateInputModeUI();
+  }
+  this.refreshMobileToolAvailability();
+  this.scheduleLayoutMeasure();
 };
 
 Board.prototype.initExplanationPanel = function () {
@@ -787,64 +1096,81 @@ Board.prototype.createGrid = function () {
 };
 
 Board.prototype.addEventListeners = function () {
-  let board = this;
-  for (let r = 0; r < board.height; r++) {
-    for (let c = 0; c < board.width; c++) {
-      let currentId = `${r}-${c}`;
-      let currentNode = board.getNode(currentId);
-      let currentElement = document.getElementById(currentId);
-      currentElement.onmousedown = (e) => {
-        e.preventDefault();
-        if (this.buttonsOn) {
-          board.mouseDown = true;
-          if (currentNode.status === "start" || currentNode.status === "target") {
-            board.pressedNodeStatus = currentNode.status;
-          } else {
-            board.pressedNodeStatus = "normal";
-            board.changeNormalNode(currentNode);
-          }
-        }
-      }
-      currentElement.onmouseup = () => {
-        if (this.buttonsOn) {
-          board.mouseDown = false;
-          if (board.pressedNodeStatus === "target") {
-            board.target = currentId;
-          } else if (board.pressedNodeStatus === "start") {
-            board.start = currentId;
-          }
-          board.pressedNodeStatus = "normal";
-        }
-      }
-      currentElement.onmouseenter = () => {
-        if (this.buttonsOn) {
-          if (board.mouseDown && board.pressedNodeStatus !== "normal") {
-            board.changeSpecialNode(currentNode);
-            if (board.pressedNodeStatus === "target") {
-              board.target = currentId;
-              if (board.algoDone) {
-                board.redoAlgorithm();
-              }
-            } else if (board.pressedNodeStatus === "start") {
-              board.start = currentId;
-              if (board.algoDone) {
-                board.redoAlgorithm();
-              }
-            }
-          } else if (board.mouseDown) {
-            board.changeNormalNode(currentNode);
-          }
-        }
-      }
-      currentElement.onmouseleave = () => {
-        if (this.buttonsOn) {
-          if (board.mouseDown && board.pressedNodeStatus !== "normal") {
-            board.changeSpecialNode(currentNode);
-          }
-        }
+  var currentObject = this;
+  var boardElement = document.getElementById("board");
+  if (!boardElement) return;
+
+  boardElement.addEventListener("pointerdown", function (event) {
+    var target = event.target.closest("td");
+    if (!target) return;
+
+    var node = currentObject.getNodeFromElement(target);
+    if (!node) return;
+
+    var mode = currentObject.getEffectiveInputMode(node);
+    if (mode === "pan") return;
+    if (!currentObject.buttonsOn && MUTATING_INPUT_MODES.indexOf(mode) !== -1) return;
+
+    currentObject.activePointerId = event.pointerId;
+    currentObject.activeInteraction = {
+      mode: mode,
+      lastNodeId: null,
+      shouldRecompute: currentObject.algoDone,
+      endpointMaterial: { status: "unvisited", weight: 0 }
+    };
+
+    if (currentObject.activeInteraction.shouldRecompute && (mode === "move-start" || mode === "move-target")) {
+      currentObject.clearPath("clickedButton");
+    }
+
+    if (boardElement.setPointerCapture) {
+      try {
+        boardElement.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore capture errors and keep fallback behavior.
       }
     }
+
+    event.preventDefault();
+    currentObject.applyPointerToolToNode(node, "start");
+  });
+
+  boardElement.addEventListener("pointermove", function (event) {
+    if (currentObject.activePointerId !== event.pointerId || !currentObject.activeInteraction) return;
+
+    var element = document.elementFromPoint(event.clientX, event.clientY);
+    var cell = element && element.closest ? element.closest("#board td") : null;
+    if (!cell) return;
+
+    var node = currentObject.getNodeFromElement(cell);
+    if (!node) return;
+
+    event.preventDefault();
+    currentObject.applyPointerToolToNode(node, "move");
+  });
+
+  function endPointerInteraction(event) {
+    if (currentObject.activePointerId !== event.pointerId) return;
+
+    if (boardElement.releasePointerCapture) {
+      try {
+        boardElement.releasePointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore capture errors.
+      }
+    }
+
+    currentObject.activePointerId = null;
+    currentObject.activeInteraction = null;
   }
+
+  boardElement.addEventListener("pointerup", endPointerInteraction);
+  boardElement.addEventListener("pointercancel", endPointerInteraction);
+};
+
+Board.prototype.getNodeFromElement = function (element) {
+  if (!element || !element.id) return null;
+  return this.nodes[element.id] || null;
 };
 
 Board.prototype.getNode = function (id) {
@@ -852,6 +1178,119 @@ Board.prototype.getNode = function (id) {
   let r = parseInt(coordinates[0]);
   let c = parseInt(coordinates[1]);
   return this.boardArray[r][c];
+};
+
+Board.prototype.applyPointerToolToNode = function (currentNode, phase) {
+  var interaction = this.activeInteraction;
+  if (!interaction || !currentNode) return;
+  if (phase !== "start" && interaction.lastNodeId === currentNode.id) return;
+
+  var mode = interaction.mode;
+  if (mode === "wall") {
+    if (phase === "start") {
+      interaction.paintValue = currentNode.status !== "wall";
+    }
+    this.setNodeWall(currentNode, interaction.paintValue);
+  } else if (mode === "weight") {
+    if (!this.isWeightModeAvailable()) return;
+    if (phase === "start") {
+      interaction.paintValue = currentNode.weight === 0 || currentNode.status === "wall";
+    }
+    this.setNodeWeight(currentNode, interaction.paintValue);
+  } else if (mode === "erase") {
+    this.clearNodeMaterial(currentNode);
+  } else if (mode === "move-start") {
+    this.moveEndpoint(currentNode, "start", interaction);
+  } else if (mode === "move-target") {
+    this.moveEndpoint(currentNode, "target", interaction);
+  }
+
+  interaction.lastNodeId = currentNode.id;
+};
+
+Board.prototype.setNodeWall = function (currentNode, isWall) {
+  if (!currentNode || currentNode.status === "start" || currentNode.status === "target") return;
+
+  var element = document.getElementById(currentNode.id);
+  if (!element) return;
+
+  if (isWall) {
+    currentNode.status = "wall";
+    currentNode.weight = 0;
+    element.className = "wall";
+  } else {
+    currentNode.status = "unvisited";
+    currentNode.weight = 0;
+    element.className = "unvisited";
+  }
+};
+
+Board.prototype.setNodeWeight = function (currentNode, isWeighted) {
+  if (!currentNode || currentNode.status === "start" || currentNode.status === "target") return;
+
+  var element = document.getElementById(currentNode.id);
+  if (!element) return;
+
+  if (!isWeighted || this.currentWeightValue === 0) {
+    currentNode.status = "unvisited";
+    currentNode.weight = 0;
+    element.className = "unvisited";
+    return;
+  }
+
+  currentNode.status = "unvisited";
+  currentNode.weight = this.currentWeightValue;
+  element.className = "unvisited weight";
+};
+
+Board.prototype.clearNodeMaterial = function (currentNode) {
+  if (!currentNode || currentNode.status === "start" || currentNode.status === "target") return;
+
+  var element = document.getElementById(currentNode.id);
+  if (!element) return;
+
+  currentNode.status = "unvisited";
+  currentNode.weight = 0;
+  element.className = "unvisited";
+};
+
+Board.prototype.moveEndpoint = function (currentNode, type, interaction) {
+  if (!currentNode || !interaction) return;
+
+  var endpointClass = type === "start" ? "start" : "target";
+  var currentEndpointId = this[type];
+  var currentEndpointNode = this.nodes[currentEndpointId];
+
+  if (currentNode.status === endpointClass) return;
+  if (currentNode.status === (type === "start" ? "target" : "start")) return;
+
+  if (currentEndpointNode && currentEndpointNode.id) {
+    var currentEndpointElement = document.getElementById(currentEndpointNode.id);
+    if (currentEndpointElement) {
+      if (interaction.endpointMaterial.weight > 0) {
+        currentEndpointElement.className = "unvisited weight";
+      } else {
+        currentEndpointElement.className = interaction.endpointMaterial.status === "wall" ? "wall" : "unvisited";
+      }
+    }
+    currentEndpointNode.status = interaction.endpointMaterial.status === "wall" ? "wall" : "unvisited";
+    currentEndpointNode.weight = interaction.endpointMaterial.weight;
+  }
+
+  interaction.endpointMaterial = {
+    status: currentNode.status === "wall" ? "wall" : "unvisited",
+    weight: currentNode.weight || 0
+  };
+
+  var nextElement = document.getElementById(currentNode.id);
+  if (nextElement) nextElement.className = endpointClass;
+  currentNode.status = endpointClass;
+  currentNode.weight = 0;
+  this[type] = currentNode.id;
+
+  if (interaction.shouldRecompute) {
+    this.redoAlgorithm();
+  }
 };
 
 Board.prototype.changeSpecialNode = function (currentNode) {
@@ -1033,6 +1472,7 @@ Board.prototype.drawShortestPathTimeout = function (targetNodeId, startNodeId, t
     if (controls) controls.classList.add("hidden");
     if (progressEl) progressEl.textContent = "";
   }
+  board.updateRunningStateUI(true);
 
   function onPathFrame(index) {
     var progressIndex = Math.min(index + 1, totalPathFrames + 1);
@@ -1063,6 +1503,7 @@ Board.prototype.drawShortestPathTimeout = function (targetNodeId, startNodeId, t
   function onPathComplete() {
     if (controls) controls.classList.add("hidden");
     if (progressEl) progressEl.textContent = "";
+    board.scheduleLayoutMeasure();
     if (historyUI && typeof historyUI.resolvePendingRun === "function") {
       historyUI.resolvePendingRun(board, board.currentRunToken, { status: "success" });
     }
@@ -1243,6 +1684,7 @@ Board.prototype.displayPathCost = function (visitedCount) {
   } else if (legacyEl) {
     legacyEl.classList.remove("hidden");
   }
+  this.scheduleLayoutMeasure();
 };
 
 Board.prototype.hidePathCost = function () {
@@ -1253,6 +1695,7 @@ Board.prototype.hidePathCost = function () {
   } else if (legacyEl) {
     legacyEl.classList.add("hidden");
   }
+  this.scheduleLayoutMeasure();
 };
 
 Board.prototype.clearPath = function (clickedButton) {
@@ -1297,6 +1740,7 @@ Board.prototype.clearPath = function (clickedButton) {
     document.getElementById(target.id).className = "target";
   }
   this.bindStartVisualizeHandler();
+  this.scheduleLayoutMeasure();
 
   this.algoDone = false;
   Object.keys(this.nodes).forEach(id => {
@@ -1981,16 +2425,22 @@ Board.prototype.toggleButtons = function () {
 
     this.setInteractiveControlsEnabled(true);
     this.syncAlgorithmSelectionUI();
+    this.updateRunningStateUI(false);
   } else {
     this.buttonsOn = false;
     this.setInteractiveControlsEnabled(false);
   }
 }
 
-const CELL_WIDTH = 25;
-const CELL_HEIGHT = 25;
+const DEFAULT_BOARD_CELL_SIZE = 25;
 const MIN_ROWS = 10;
 const MIN_COLS = 10;
+
+function getBoardCellSize() {
+  var rawValue = window.getComputedStyle(document.documentElement).getPropertyValue("--board-cell-size");
+  var parsed = parseFloat(rawValue);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_BOARD_CELL_SIZE;
+}
 
 function getGridWrapperContentSize(wrapper) {
   if (!wrapper) return { width: 0, height: 0 };
@@ -2004,22 +2454,33 @@ function getGridWrapperContentSize(wrapper) {
 }
 
 function getInitialBoardDimensions() {
+  var cellSize = getBoardCellSize();
   let wrapper = document.getElementById("gridWrapper");
   let contentSize = getGridWrapperContentSize(wrapper);
   let navbarHeight = document.getElementById("navbarDiv") ? document.getElementById("navbarDiv").clientHeight : 50;
   let legendHeight = document.getElementById("legendBar") ? document.getElementById("legendBar").clientHeight : 28;
-  let fallbackHeight = Math.max(MIN_ROWS * CELL_HEIGHT, document.documentElement.clientHeight - navbarHeight - legendHeight - 6);
-  let fallbackWidth = Math.max(MIN_COLS * CELL_WIDTH, document.documentElement.clientWidth);
-  let availableHeight = Math.max(MIN_ROWS * CELL_HEIGHT, contentSize.height || fallbackHeight);
-  let availableWidth = Math.max(MIN_COLS * CELL_WIDTH, contentSize.width || fallbackWidth);
+  let viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+  let viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+  let fallbackHeight = Math.max(MIN_ROWS * cellSize, viewportHeight - navbarHeight - legendHeight - 6);
+  let fallbackWidth = Math.max(MIN_COLS * cellSize, viewportWidth);
+  let availableHeight = Math.max(MIN_ROWS * cellSize, contentSize.height || fallbackHeight);
+  let availableWidth = Math.max(MIN_COLS * cellSize, contentSize.width || fallbackWidth);
   return {
-    height: Math.max(MIN_ROWS, Math.floor(availableHeight / CELL_HEIGHT)),
-    width: Math.max(MIN_COLS, Math.floor(availableWidth / CELL_WIDTH))
+    height: Math.max(MIN_ROWS, Math.floor(availableHeight / cellSize)),
+    width: Math.max(MIN_COLS, Math.floor(availableWidth / cellSize))
   };
 }
 
+let newBoard = new Board(MIN_ROWS, MIN_COLS);
+if (window.innerWidth < 1200 && localStorage.getItem("sidebarOpen") === null) {
+  newBoard.sidebarOpen = false;
+}
+newBoard.syncResponsiveLayout(true);
+newBoard.syncMobileChromeState();
+writeLayoutChromeMetrics(readLayoutChromeMetrics());
 let dimensions = getInitialBoardDimensions();
-let newBoard = new Board(dimensions.height, dimensions.width)
+newBoard.height = dimensions.height;
+newBoard.width = dimensions.width;
 window.__board = newBoard;
 newBoard.initialise();
 

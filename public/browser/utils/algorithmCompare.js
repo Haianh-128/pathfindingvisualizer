@@ -56,6 +56,32 @@ function buildTableRows() {
   }).join("");
 }
 
+function buildCardRows() {
+  return ALGORITHM_ORDER.map(function (key) {
+    var data = algorithmDescriptions.descriptions[key];
+    if (!data) return "";
+    var characteristics = data.characteristics || {};
+
+    return (
+      '<article class="algo-compare-card">' +
+      '<div class="algo-compare-card-head">' +
+      '<h5 class="algo-compare-card-title">' + escapeHTML(data.name) + '</h5>' +
+      '<button class="btn btn-sm btn-default compare-open-algo" data-key="' + escapeHTML(key) + '" type="button">Open details</button>' +
+      '</div>' +
+      '<div class="algo-compare-card-grid">' +
+      '<div class="algo-compare-card-item"><span class="label">Weighted</span><span class="value">' + weightedLabel(data.category) + '</span></div>' +
+      '<div class="algo-compare-card-item"><span class="label">Optimal</span><span class="value">' + yesNo(data.guaranteesOptimal) + '</span></div>' +
+      '<div class="algo-compare-card-item"><span class="label">Complete</span><span class="value">' + completeLabel(data.complete) + '</span></div>' +
+      '<div class="algo-compare-card-item"><span class="label">Heuristic</span><span class="value">' + yesNo(characteristics.usesHeuristic) + '</span></div>' +
+      '<div class="algo-compare-card-item"><span class="label">Time</span><span class="value">' + escapeHTML(characteristics.timeComplexity) + '</span></div>' +
+      '<div class="algo-compare-card-item"><span class="label">Space</span><span class="value">' + escapeHTML(characteristics.spaceComplexity) + '</span></div>' +
+      '</div>' +
+      '<p class="algo-compare-card-rule"><strong>Selection Rule:</strong> ' + escapeHTML(characteristics.selectionRule) + '</p>' +
+      '</article>'
+    );
+  }).join("");
+}
+
 function showComparisonModal() {
   var old = document.getElementById("algorithmCompareModal");
   if (old && old.parentNode) old.parentNode.removeChild(old);
@@ -70,6 +96,9 @@ function showComparisonModal() {
     '        <div class="algo-modal-divider" aria-hidden="true"></div>' +
     "      </div>" +
     '      <div class="modal-body">' +
+    '        <div class="algo-compare-card-list">' +
+    buildCardRows() +
+    "        </div>" +
     '        <div class="table-responsive">' +
     '          <table class="table table-condensed algo-compare-table">' +
     "            <thead>" +

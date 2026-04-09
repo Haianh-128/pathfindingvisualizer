@@ -2,6 +2,7 @@
 
 <head>
   <title>Pathfinding Visualizer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
   <link id="cssTheme" rel="stylesheet" href="public/styling/cssBasic.css" />
   <link rel="shortcut icon" type="image/png" href="public/styling/c_icon.png" />
@@ -153,7 +154,11 @@
   </div>
 
   <div id="appLayout">
+    <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
     <aside id="sidebar" class="sidebar-open">
+      <div class="sidebar-sheet-handle" aria-hidden="true">
+        <span></span>
+      </div>
       <div class="sidebar-tabs">
         <button id="tabControls" class="sidebar-tab active" type="button">Controls</button>
         <button id="tabInsight" class="sidebar-tab" type="button">Insight</button>
@@ -378,46 +383,59 @@
         <span><strong>Visited:</strong> <span id="visitedCount">0</span> nodes</span>
       </div>
 
+      <div id="mobileEditToolbar" class="mobile-edit-toolbar" aria-label="Board edit tools">
+        <button type="button" class="mobile-tool-btn" data-input-mode="pan" aria-pressed="false">Pan</button>
+        <button type="button" class="mobile-tool-btn" data-input-mode="wall" aria-pressed="false">Wall</button>
+        <button type="button" class="mobile-tool-btn" data-input-mode="weight" aria-pressed="false">Weight</button>
+        <button type="button" class="mobile-tool-btn" data-input-mode="erase" aria-pressed="false">Erase</button>
+        <button type="button" class="mobile-tool-btn" data-input-mode="move-start" aria-pressed="false">Move Start</button>
+        <button type="button" class="mobile-tool-btn" data-input-mode="move-target" aria-pressed="false">Move Target</button>
+      </div>
+
       <div id="playbackPod" class="playback-pod dark-stage">
-        <div class="dropdown dropup playback-algo-dropdown">
-          <button id="algoSelectBtn" class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown">
-            <span id="algoSelectLabel">Select Algorithm</span> <span class="caret"></span>
-          </button>
-          <ul class="dropdown-menu">
-            <li id='startButtonDijkstra'><a href="#">Dijkstra's Algorithm</a></li>
-            <li id='startButtonAStar2'><a href="#">A* Search</a></li>
-            <li id='startButtonGreedy'><a href="#">Greedy Best-first Search</a></li>
-            <li id='startButtonAStar'><a href="#">Swarm Algorithm</a></li>
-            <li id='startButtonAStar3'><a href="#">Convergent Swarm Algorithm</a></li>
-            <li id='startButtonBidirectional'><a href="#">Bidirectional Swarm Algorithm</a></li>
-            <li id='startButtonBFS'><a href="#">Breadth-first Search</a></li>
-            <li id='startButtonDFS'><a href="#">Depth-first Search</a></li>
-          </ul>
+        <div class="pod-row pod-row-top">
+          <div class="dropdown dropup playback-algo-dropdown">
+            <button id="algoSelectBtn" class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown">
+              <span id="algoSelectLabel">Select Algorithm</span> <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu">
+              <li id='startButtonDijkstra'><a href="#">Dijkstra's Algorithm</a></li>
+              <li id='startButtonAStar2'><a href="#">A* Search</a></li>
+              <li id='startButtonGreedy'><a href="#">Greedy Best-first Search</a></li>
+              <li id='startButtonAStar'><a href="#">Swarm Algorithm</a></li>
+              <li id='startButtonAStar3'><a href="#">Convergent Swarm Algorithm</a></li>
+              <li id='startButtonBidirectional'><a href="#">Bidirectional Swarm Algorithm</a></li>
+              <li id='startButtonBFS'><a href="#">Breadth-first Search</a></li>
+              <li id='startButtonDFS'><a href="#">Depth-first Search</a></li>
+            </ul>
+          </div>
+
+          <div class="dropdown dropup playback-speed-dropdown">
+            <button id="adjustSpeed" class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown">
+              Speed: Fast <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu">
+              <li id='adjustFast'><a href="#">Fast</a></li>
+              <li id='adjustAverage'><a href="#">Average</a></li>
+              <li id='adjustSlow'><a href="#">Slow</a></li>
+            </ul>
+          </div>
         </div>
 
-        <div class="dropdown dropup playback-speed-dropdown">
-          <button id="adjustSpeed" class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown">
-            Speed: Fast <span class="caret"></span>
-          </button>
-          <ul class="dropdown-menu">
-            <li id='adjustFast'><a href="#">Fast</a></li>
-            <li id='adjustAverage'><a href="#">Average</a></li>
-            <li id='adjustSlow'><a href="#">Slow</a></li>
-          </ul>
-        </div>
+        <div class="pod-row pod-row-bottom">
+          <div id='startButtonStart' class="playback-visualize">
+            <button id="actualStartButton" class="btn btn-primary navbar-btn" type="button">Visualize!</button>
+          </div>
 
-        <div id='startButtonStart' class="playback-visualize">
-          <button id="actualStartButton" class="btn btn-primary navbar-btn" type="button">Visualize!</button>
-        </div>
-
-        <div id="animationControls" class="hidden">
-          <button id="pauseResumeBtn" class="btn btn-default" type="button">
-            <span class="glyphicon glyphicon-pause"></span> Pause
-          </button>
-          <button id="stepForwardBtn" class="btn btn-default" type="button">
-            <span class="glyphicon glyphicon-step-forward"></span> Step
-          </button>
-          <span id="animationProgress" class="pod-progress"></span>
+          <div id="animationControls" class="hidden">
+            <button id="pauseResumeBtn" class="btn btn-default" type="button">
+              <span class="glyphicon glyphicon-pause"></span> Pause
+            </button>
+            <button id="stepForwardBtn" class="btn btn-default" type="button">
+              <span class="glyphicon glyphicon-step-forward"></span> Step
+            </button>
+            <span id="animationProgress" class="pod-progress"></span>
+          </div>
         </div>
       </div>
     </main>
